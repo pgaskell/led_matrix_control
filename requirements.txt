@@ -1,0 +1,6 @@
+pygame
+rpi_ws281x
+numpy
+sounddevice
+PyAudio
+PIL
