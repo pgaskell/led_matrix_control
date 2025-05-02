@@ -1,0 +1,45 @@
+{
+  "pattern": "spiral_drift",
+  "params": {
+    "SPIRAL_SPEED": 0.05,
+    "NUM_ARMS": 4,
+    "ARM_THICKNESS": 0.1,
+    "COLORMAP": "warm_rainbow",
+    "SPRITE": "Chick"
+  },
+  "modulation": {
+    "SPIRAL_SPEED": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "add"
+    },
+    "NUM_ARMS": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "add"
+    },
+    "ARM_THICKNESS": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "add"
+    }
+  },
+  "lfo_config": {
+    "lfo1": {
+      "waveform": "sine",
+      "depth": 1.0,
+      "sync_mode": "quantized",
+      "hz": 0.5,
+      "period_beats": 1.0,
+      "phase": 0.0
+    },
+    "lfo2": {
+      "waveform": "triangle",
+      "depth": 1.0,
+      "sync_mode": "free",
+      "hz": 0.2,
+      "period_beats": 2.0,
+      "phase": 0.0
+    }
+  }
+}

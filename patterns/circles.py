@@ -3,17 +3,22 @@ import random
 from .base import Pattern as BasePattern, apply_modulation
 from colormaps import COLORMAPS
 
+# --- Adjustable Parameters ---
 PARAMS = {
     "NUM_GENERATORS": {
-        "default": 4, "min": 1, "max": 10, "step": 1,
+        "default": 4,  "min": 1,   "max": 10,  "step": 1,
         "modulatable": True
     },
     "MOVE_SPEED": {
-        "default": 0.1, "min": 0.01, "max": 1.0, "step": 0.01,
+        "default": 0.1, "min": 0.01, "max": 0.4, "step": 0.01,
         "modulatable": True
     },
-    "COLOR_CYCLE_SPEED": {
-        "default": 0.0, "min": 0.0, "max": 0.1, "step": 0.001,
+    "PALETTE_SHIFT": {
+        "default": 0.02, "min": 0.0,  "max": 0.2,  "step": 0.001,
+        "modulatable": True
+    },
+    "CIRCLE_THICKNESS": {
+        "default": 1.0,  "min": 0.1,  "max": 5.0, "step": 0.1,
         "modulatable": True
     },
     "COLORMAP": {
@@ -28,63 +33,76 @@ PARAMS = {
 
 class Pattern(BasePattern):
     def __init__(self, width, height, params=None):
-        super().__init__(width, height, params)
-        self.param_meta = PARAMS
+        # bypass BasePattern's .params so we can merge defaults + passed
+        self.width  = width
+        self.height = height
+        # start with all defaults
+        self.params = {
+            k: (v["default"] if isinstance(v, dict) else v)
+            for k, v in PARAMS.items()
+        }
+        # override with any passed values
+        if params:
+            self.params.update(params)
+
+        self.param_meta  = PARAMS
         self.frame_count = 0
-        self.circles = []  # (x, y, age)
-    
+        self.circles     = []  # list of (x, y, age)
+
     def render(self, lfo_signals=None):
         self.frame_count += 1
 
-        # Params
-        num_gen = self.params["NUM_GENERATORS"]
+        # 1) Read & modulate raw parameters
+        num_gen    = self.params["NUM_GENERATORS"]
         move_speed = self.params["MOVE_SPEED"]
-        color_shift = self.params["COLOR_CYCLE_SPEED"]
+        cycle_speed= self.params["PALETTE_SHIFT"]
+        thickness  = self.params["CIRCLE_THICKNESS"]
 
-        # Modulate
-        for key in ["NUM_GENERATORS", "MOVE_SPEED", "COLOR_CYCLE_SPEED"]:
-            meta = self.param_meta.get(key, {})
+        for key in ("NUM_GENERATORS", "MOVE_SPEED", "PALETTE_SHIFT", "CIRCLE_THICKNESS"):
+            meta = self.param_meta[key]
             if meta.get("modulatable") and meta.get("mod_active") and meta.get("mod_source") in (lfo_signals or {}):
-                val = apply_modulation(self.params[key], meta, lfo_signals)
+                mv = apply_modulation(self.params[key], meta, lfo_signals)
                 if key == "NUM_GENERATORS":
-                    num_gen = int(max(1, round(val)))
+                    num_gen = max(1, int(round(mv)))
                 elif key == "MOVE_SPEED":
-                    move_speed = val
-                elif key == "COLOR_CYCLE_SPEED":
-                    color_shift = val
+                    move_speed = mv
+                elif key == "PALETTE_SHIFT":
+                    cycle_speed = mv
+                elif key == "CIRCLE_THICKNESS":
+                    thickness = mv
 
-        cmap = COLORMAPS.get(self.params["COLORMAP"], COLORMAPS["jet"])
+        # 2) Prepare LUT and global color for this frame
+        cmap     = COLORMAPS.get(self.params["COLORMAP"], COLORMAPS["jet"])
         cmap_len = len(cmap)
+        # advance through the colormap by cycle_speed * frames
+        idx = int(self.frame_count * cycle_speed * cmap_len) % cmap_len
+        base_r, base_g, base_b = cmap[idx]
 
-        # Add new circle randomly if under limit
+        # 3) Spawn new ripples if under limit
         if len(self.circles) < num_gen and random.random() < 0.2:
-            x = random.randint(0, self.width - 1)
-            y = random.randint(0, self.height - 1)
-            self.circles.append((x, y, 0))  # age = 0
+            x = random.randint(0, self.width-1)
+            y = random.randint(0, self.height-1)
+            self.circles.append((x, y, 0))
 
-        # Update circle ages
-        new_circles = []
+        # 4) Age and cull old circles
+        new = []
         for cx, cy, age in self.circles:
-            if age < 300:  # max age
-                new_circles.append((cx, cy, age + 1))
-        self.circles = new_circles
+            if age < 300:
+                new.append((cx, cy, age+1))
+        self.circles = new
 
-        hue_offset = self.frame_count * color_shift
-        frame = []
+        # 5) Draw! Black background, then rings in uniform color
+        frame = [ (0,0,0,0) ] * (self.width * self.height)
 
-        for y in range(self.height):
-            for x in range(self.width):
-                intensity = 0.0
-                for cx, cy, age in self.circles:
-                    radius = age * move_speed
+        for cx, cy, age in self.circles:
+            radius = age * move_speed
+            # for performance, you could restrict y range to [cy-radius-thickness, cy+radius+thickness]
+            for y in range(self.height):
+                for x in range(self.width):
                     dist = math.hypot(x - cx, y - cy)
-                    delta = abs(dist - radius)
-                    strength = max(0.0, 1.0 - delta)
-                    intensity += strength
-                intensity = min(intensity, 1.0)
-                hue = (intensity + hue_offset) % 1.0
-                index = int(hue * (cmap_len - 1))
-                r, g, b = cmap[index]
-                frame.append((r, g, b, 0))
+                    # within half-thickness of the radius?
+                    if abs(dist - radius) <= (thickness/2):
+                        idx = y * self.width + x
+                        frame[idx] = (base_r, base_g, base_b, 0)
 
         return frame

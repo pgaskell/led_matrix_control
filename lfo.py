@@ -59,15 +59,16 @@ def evaluate_lfos():
         # Determine phase
         if config.get("sync_mode") == "quantized":
             beats_per_sec = BPM / 60.0
-            period = config.get("period_beats", 1.0) / beats_per_sec
+            bars         = config.get("period_beats", 1.0)
+            period_beats = bars * 4
+            period       = period_beats / beats_per_sec
         else:
             period = 1.0 / max(config.get("hz", 0.1), 0.001)
 
         phase = ((now + phase_offset) % period) / period
         raw_value = _waveform(phase, shape)
-        modulated = raw_value * depth
+        modulated = (raw_value * 0.5 + 0.5) * depth
         modulated = max(-depth, min(raw_value * depth, depth))
-
         lfo_signals[key] = modulated
 
     return lfo_signals

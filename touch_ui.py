@@ -90,6 +90,33 @@ def delete_patch(index):
     except FileNotFoundError:
         pass
 
+def make_thumbnail(pattern, frame, sprites, params, size):
+    """
+    Render a simulator snapshot + sprite overlay into a Surface of given size.
+    - `pattern`: the Pattern instance (to know width/height)
+    - `frame`: the raw LED frame list
+    - `sprites`: dict mapping sprite_name -> list_of_surfaces
+    - `params`: dict of params (holds 'SPRITE')
+    - `size`: (w, h) target thumbnail size
+    """
+    # 1) Draw the LED grid at full resolution
+    base = pygame.Surface((pattern.width, pattern.height), pygame.SRCALPHA)
+    draw_simulator(base, frame, pattern.width, pattern.height,
+                   pygame.Rect(0, 0, pattern.width, pattern.height))
+
+    # 2) Overlay the sprite (first frame)
+    sprite_name = params.get("SPRITE", "none")
+    if sprite_name in sprites and sprites[sprite_name]:
+        sprite_surf = sprites[sprite_name][0]
+        sw, sh = sprite_surf.get_size()
+        ox = (pattern.width  - sw) // 2
+        oy = (pattern.height - sh) // 2
+        # blit with alpha
+        base.blit(sprite_surf, (ox, oy))
+
+    # 3) Scale down to thumbnail size
+    return pygame.transform.smoothscale(base, size)
+
 def extract_mod_config(param_meta):
     out = {}
     for k, meta in param_meta.items():
@@ -100,6 +127,48 @@ def extract_mod_config(param_meta):
                 "mod_mode": meta.get("mod_mode", "add")
             }
     return out
+
+def draw_mod_indicator(screen, font, signals, label, key, color, idx):
+    """
+    Draw a centered bipolar bar for `signals[key]` in row `idx`.
+    - signals: dict of {"lfo1":…, "lfo2":…, "audio1":…, "audio2":…}
+    - label: text to show (“LFO1”, “AUDIO1”, etc.)
+    - key: the dict key
+    - color: bar fill color
+    - idx: which row [0…3]
+    """
+    # geometry
+    bar_x = 25
+    bar_w = 210
+    bar_h = 10
+    spacing = 4
+    bar_y = (UI_HEIGHT - 100) + idx * (bar_h + spacing)
+
+    # background
+    pygame.draw.rect(screen, (50,50,50), (bar_x, bar_y, bar_w, bar_h))
+
+    # center zero‐line
+    cx = bar_x + bar_w // 2
+    pygame.draw.line(screen, (200,200,200),
+                     (cx, bar_y), (cx, bar_y + bar_h))
+
+    # get & clamp signal
+    val = signals.get(key, 0.0)
+    val = max(-1.0, min(1.0, val))
+    length = int(val * (bar_w // 2))
+
+    # compute rect
+    if length >= 0:
+        rect = pygame.Rect(cx, bar_y, length, bar_h)
+    else:
+        rect = pygame.Rect(cx + length, bar_y, -length, bar_h)
+
+    # fill
+    pygame.draw.rect(screen, color, rect)
+
+    # label
+    #screen.blit(font.render(label, True, (255,255,255)),
+    #            (bar_x + bar_w + 10, bar_y))
 
 class Slider:
     def __init__(self, name, default, min_val, max_val, step, x, y, height):
@@ -390,8 +459,8 @@ def launch_ui():
     pygame.init()
     from lfo import BPM
     # — Basic setup —
-    show_simulator = True
-    screen = pygame.display.set_mode((SCREEN_WIDTH, FULL_HEIGHT), pygame.RESIZABLE)
+    show_simulator = False
+    screen = pygame.display.set_mode((SCREEN_WIDTH, UI_HEIGHT), pygame.RESIZABLE)
     pygame.display.set_caption("LED Wall Touch UI")
     font = pygame.font.SysFont("monospace", FONT_SIZE)
     button_font = pygame.font.SysFont("monospace", FONT_SIZE)
@@ -475,11 +544,12 @@ def launch_ui():
             ps  = mod.PARAMS
             params = p["params"]
             temp = mod.Pattern(24, 24, params=params)
-            frame = temp.render(lfo_signals={})  # no LFO
-            thumb = pygame.Surface((temp.width, temp.height))
-            draw_simulator(thumb, frame, temp.width, temp.height,
-                           pygame.Rect(0, 0, temp.width, temp.height))
-            patch_icons[i] = pygame.transform.smoothscale(thumb, (SLOT_SIZE, SLOT_SIZE))
+            frame = temp.render(lfo_signals={})
+            patch_icons[i] = make_thumbnail(
+                temp, frame,
+                sprites, params,
+                (SLOT_SIZE, SLOT_SIZE)
+            )
 
     while running:
         screen.fill(BG_COLOR)
@@ -547,7 +617,12 @@ def launch_ui():
                     if slot.collidepoint(event.pos):
                         if save_mode:
                             # Save slot i
-                            save_patch(i, pattern_names[current_index], params, pattern.param_meta, LFO_CONFIG)
+                            lfo_config = {
+                                "lfo1": lfo1_panel.config.copy(),
+                                "lfo2": lfo2_panel.config.copy()
+                            }
+
+                            save_patch(i, pattern_names[current_index], params, pattern.param_meta, lfo_config)
                             # capture thumbnail
                             thumb = pygame.Surface((pattern.width, pattern.height))
                             draw_simulator(thumb, frame or [], pattern.width, pattern.height,
@@ -603,10 +678,16 @@ def launch_ui():
                                                 c.active = True
 
                                 # Restore LFO configuration
-                                from lfo import LFO_CONFIG as global_lfo
-                                global_lfo.update(patch["lfo_config"])
+                                import lfo
+
+                                # for each LFO name, update the existing config dict in place
+                                for name, saved_cfg in patch["lfo_config"].items():
+                                    if name in lfo.LFO_CONFIG:
+                                        lfo.LFO_CONFIG[name].clear()
+                                        lfo.LFO_CONFIG[name].update(saved_cfg)
+                                
                                 for name, panel in (("lfo1", lfo1_panel), ("lfo2", lfo2_panel)):
-                                    cfg = global_lfo[name]
+                                    cfg = LFO_CONFIG[name]
                                     panel.config.update(cfg)
                                     panel.waveform_dropdown.selected = cfg["waveform"]
                                     panel.depth_slider.value         = cfg["depth"]
@@ -621,6 +702,17 @@ def launch_ui():
                         break
                 continue
         
+        # Show/Hide the Simulator
+        # pick the target size based on whether we’re showing the simulator
+        if show_simulator:
+            target_size = (SCREEN_WIDTH, FULL_HEIGHT)
+        else:
+            target_size = (SCREEN_WIDTH, UI_HEIGHT)
+
+        # only recreate the window if something’s changed
+        if screen.get_size() != target_size:
+            screen = pygame.display.set_mode(target_size, pygame.RESIZABLE)
+
 
         # If you want “instant” updates as you drag:
         if instant_update:
@@ -689,13 +781,13 @@ def launch_ui():
 
         # Mode Buttons (Save-mode, Tap-tempo, Show/Hide) ————————
         pygame.draw.rect(screen, (200,80,80) if save_mode else (80,200,80),
-                         save_button_rect, border_radius=4)
+                         save_button_rect)
         screen.blit(font.render(
             "SAVE" if not save_mode else "SELECT SLOT", True, (255,255,255)),
             (save_button_rect.x+10, save_button_rect.y+10))
 
-        pygame.draw.rect(screen, (200,200,80) if clear_mode else (80,80,80),
-                         clear_button_rect, border_radius=4)
+        pygame.draw.rect(screen, (200,80,80) if clear_mode else (80,80,200),
+                         clear_button_rect)
         screen.blit(font.render(
             "CLEAR" if not clear_mode else "SELECT SLOT", True, (255,255,255)),
             (clear_button_rect.x+10, clear_button_rect.y+10))
@@ -718,24 +810,27 @@ def launch_ui():
                 ir = icon.get_rect(center=slot.center)
                 screen.blit(icon, ir)
             # slot border (red if saving, gray otherwise)
-            border_col = (200,80,80) if save_mode else (100,100,100)
+            border_col = (200,80,80) if (save_mode or clear_mode) else (100,100,100)
             pygame.draw.rect(screen, border_col, slot, 2)
 
         # LFO Outputs & BPM —————————————————————————————
-        # LFO1 bar
-        pygame.draw.rect(screen, (50,50,50), (20, UI_HEIGHT-100, 200, 20))
-        pygame.draw.rect(screen, (100,200,255),
-                         (20, UI_HEIGHT-100, int(200*lfo_signals["lfo1"]), 20))
-        screen.blit(font.render("LFO1", True, (255,255,255)),
-                    (230, UI_HEIGHT-100))
+        
+        audio_signals = {"audio1": 0.0, "audio2": 0.0} # temporary for testing
+        
+        mod_signals = {**lfo_signals, **audio_signals}
 
-        # LFO2 bar
-        pygame.draw.rect(screen, (50,50,50), (20, UI_HEIGHT-70, 200, 20))
-        pygame.draw.rect(screen, (255,100,200),
-                         (20, UI_HEIGHT-70, int(200*lfo_signals["lfo2"]), 20))
-        screen.blit(font.render("LFO2", True, (255,255,255)),
-                    (230, UI_HEIGHT-70))
-
+        # row 0: LFO1 (cyan)
+        draw_mod_indicator(screen, font, mod_signals,
+                        "LFO1", "lfo1", (100,200,255), 0)
+        # row 1: LFO2 (magenta)
+        draw_mod_indicator(screen, font, mod_signals,
+                        "LFO2", "lfo2", (255,100,200), 1)
+        # row 2: AUDIO1 (yellow)
+        draw_mod_indicator(screen, font, mod_signals,
+                        "AUDIO1", "audio1", (255,255,100), 2)
+        # row 3: AUDIO2 (orange)
+        draw_mod_indicator(screen, font, mod_signals,
+                        "AUDIO2", "audio2", (255,150, 50), 3)
         # BPM text
         import lfo
         screen.blit(font.render(f"{int(lfo.BPM)} BPM", True, (200,255,200)),
@@ -746,9 +841,10 @@ def launch_ui():
             s.draw(screen, font)
         for c in mod_checkboxes:
             c.draw(screen)
-        lfo1_panel.draw(screen, font)
+        
         lfo2_panel.draw(screen, font)
-
+        lfo1_panel.draw(screen, font)
+        
         # Parameter Dropdowns (closed first, then open on top) —————
         for d in dropdowns:
             if not d.open:

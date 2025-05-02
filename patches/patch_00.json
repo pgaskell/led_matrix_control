@@ -1,0 +1,45 @@
+{
+  "pattern": "lfo_visual_debug",
+  "params": {
+    "SQUARE_X": 0.5,
+    "SQUARE_Y": 0.5,
+    "LUT_INDEX": 0.5,
+    "COLORMAP": "warm_rainbow",
+    "SPRITE": "none"
+  },
+  "modulation": {
+    "SQUARE_X": {
+      "mod_active": true,
+      "mod_source": "lfo1",
+      "mod_mode": "add"
+    },
+    "SQUARE_Y": {
+      "mod_active": true,
+      "mod_source": "lfo2",
+      "mod_mode": "add"
+    },
+    "LUT_INDEX": {
+      "mod_active": true,
+      "mod_source": "lfo1",
+      "mod_mode": "add"
+    }
+  },
+  "lfo_config": {
+    "lfo1": {
+      "waveform": "triangle",
+      "depth": 0.75,
+      "sync_mode": "quantized",
+      "hz": 0.05,
+      "period_beats": 4.0,
+      "phase": 0.0
+    },
+    "lfo2": {
+      "waveform": "square",
+      "depth": 0.28,
+      "sync_mode": "free",
+      "hz": 1.0,
+      "period_beats": 2.0,
+      "phase": 0.0
+    }
+  }
+}

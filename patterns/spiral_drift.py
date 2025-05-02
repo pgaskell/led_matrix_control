@@ -14,7 +14,7 @@ PARAMS = {
     },
     "ARM_THICKNESS": {
         "default": 0.1, "min": 0.01, "max": 0.5, "step": 0.01,
-        "modulatable": True,
+        "modulatable": True
     }
 }
 

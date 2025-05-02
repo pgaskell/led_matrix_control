@@ -1,0 +1,54 @@
+{
+  "pattern": "circles",
+  "params": {
+    "SPIRAL_SPEED": 0.05,
+    "NUM_ARMS": 4,
+    "ARM_THICKNESS": 0.1,
+    "COLORMAP": "ultra_rainbow",
+    "SPRITE": "none",
+    "NUM_GENERATORS": 8,
+    "MOVE_SPEED": 0.19,
+    "PALETTE_SHIFT": 0.004,
+    "CIRCLE_THICKNESS": 4.0
+  },
+  "modulation": {
+    "NUM_GENERATORS": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "add"
+    },
+    "MOVE_SPEED": {
+      "mod_active": true,
+      "mod_source": "lfo2",
+      "mod_mode": "add"
+    },
+    "PALETTE_SHIFT": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "add"
+    },
+    "CIRCLE_THICKNESS": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "add"
+    }
+  },
+  "lfo_config": {
+    "lfo1": {
+      "waveform": "sine",
+      "depth": 1.0,
+      "sync_mode": "quantized",
+      "hz": 0.5,
+      "period_beats": 1.0,
+      "phase": 0.0
+    },
+    "lfo2": {
+      "waveform": "triangle",
+      "depth": 1.0,
+      "sync_mode": "free",
+      "hz": 0.2,
+      "period_beats": 2.0,
+      "phase": 0.0
+    }
+  }
+}
