@@ -4,6 +4,7 @@ import time
 import importlib
 import os
 import json
+from os.path import join, isfile
 from PIL import Image
 from lfo import evaluate_lfos, LFO_CONFIG, BPM
 
@@ -78,6 +79,16 @@ def save_patch(index, pattern_name, params, param_meta, lfo_config):
 def load_patch(index):
     with open(f"patches/patch_{index:02d}.json", "r") as f:
         return json.load(f)
+
+def delete_patch(index):
+    """
+    Delete the JSON file for patch slot `index`, if it exists.
+    """
+    path = os.path.join("patches", f"patch_{index:02d}.json")
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
 
 def extract_mod_config(param_meta):
     out = {}
@@ -391,6 +402,7 @@ def launch_ui():
     patches = [None] * TOTAL_SLOTS
     patch_icons = [None] * TOTAL_SLOTS
     save_mode = False
+    clear_mode = False
 
     # — LFO panels —
     lfo1_panel = LFOControlPanel("lfo1", SCREEN_WIDTH - 300, 90, LFO_CONFIG["lfo1"])
@@ -432,6 +444,7 @@ def launch_ui():
     # — UI button rectangles —
     sim_button_rect  = pygame.Rect(SCREEN_WIDTH - 200, 10, 180, 30)
     save_button_rect = pygame.Rect(SCREEN_WIDTH - 420, UI_HEIGHT - 90, 180, 45)
+    clear_button_rect = pygame.Rect(SCREEN_WIDTH - 620, UI_HEIGHT - 90, 180, 45)
     tap_button_rect  = pygame.Rect(SCREEN_WIDTH - 220, UI_HEIGHT - 90, 180, 45)
     tap_times = []
 
@@ -450,6 +463,23 @@ def launch_ui():
     clock = pygame.time.Clock()
     running = True
     frame = None
+
+    # load patches
+    for i in range(TOTAL_SLOTS):
+        fn = join("patches/", f"patch_{i:02d}.json")
+        if isfile(fn):
+            patches[i] = True
+            # Recreate thumbnail from saved params:
+            p = load_patch(i)
+            mod = patterns[p["pattern"]]
+            ps  = mod.PARAMS
+            params = p["params"]
+            temp = mod.Pattern(24, 24, params=params)
+            frame = temp.render(lfo_signals={})  # no LFO
+            thumb = pygame.Surface((temp.width, temp.height))
+            draw_simulator(thumb, frame, temp.width, temp.height,
+                           pygame.Rect(0, 0, temp.width, temp.height))
+            patch_icons[i] = pygame.transform.smoothscale(thumb, (SLOT_SIZE, SLOT_SIZE))
 
     while running:
         screen.fill(BG_COLOR)
@@ -507,9 +537,12 @@ def launch_ui():
                 if save_button_rect.collidepoint(event.pos):
                     save_mode = not save_mode
                     continue
-
+                # Toggle clear mode
+                if clear_button_rect.collidepoint(event.pos):
+                   clear_mode = not clear_mode
+                   continue
+                
                 # Patch grid clicks
-
                 for i, slot in enumerate(patch_rects):
                     if slot.collidepoint(event.pos):
                         if save_mode:
@@ -522,6 +555,12 @@ def launch_ui():
                             patch_icons[i] = pygame.transform.smoothscale(thumb, (slot.width, slot.height))
                             patches[i] = True
                             save_mode = False
+                        elif clear_mode:
+                            # Clear slot i
+                            delete_patch(i)
+                            patches[i]      = None
+                            patch_icons[i]  = None
+                            clear_mode      = False
                         else:
                             # Recall slot i
                             if patches[i]:
@@ -654,6 +693,12 @@ def launch_ui():
         screen.blit(font.render(
             "SAVE" if not save_mode else "SELECT SLOT", True, (255,255,255)),
             (save_button_rect.x+10, save_button_rect.y+10))
+
+        pygame.draw.rect(screen, (200,200,80) if clear_mode else (80,80,80),
+                         clear_button_rect, border_radius=4)
+        screen.blit(font.render(
+            "CLEAR" if not clear_mode else "SELECT SLOT", True, (255,255,255)),
+            (clear_button_rect.x+10, clear_button_rect.y+10))
 
         pygame.draw.rect(screen, (90,90,90), tap_button_rect)
         screen.blit(font.render("Tap Tempo", True, (255,255,255)),
