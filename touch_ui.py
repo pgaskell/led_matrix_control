@@ -3,6 +3,7 @@ import pygame
 import time
 import importlib
 import os
+import json
 from PIL import Image
 from lfo import evaluate_lfos, LFO_CONFIG, BPM
 
@@ -13,8 +14,8 @@ SCREEN_WIDTH = 1024
 FULL_HEIGHT = 1080
 UI_HEIGHT = 600
 SIM_HEIGHT = 480
-SLIDER_WIDTH = 40
-SLIDER_MARGIN = 25
+SLIDER_WIDTH = 30
+SLIDER_MARGIN = 20
 FONT_SIZE = 20
 SLIDER_COLOR = (100, 200, 255)
 BG_COLOR = (30, 30, 30)
@@ -64,7 +65,30 @@ def load_sprites(folder="sprites"):
             sprite_names.append(name)
     return sprites, ["none"] + sprite_names
 
+def save_patch(index, pattern_name, params, param_meta, lfo_config):
+    patch = {
+        "pattern": pattern_name,
+        "params": params,
+        "modulation": extract_mod_config(param_meta),
+        "lfo_config": lfo_config
+    }
+    with open(f"patches/patch_{index:02d}.json", "w") as f:
+        json.dump(patch, f, indent=2)
 
+def load_patch(index):
+    with open(f"patches/patch_{index:02d}.json", "r") as f:
+        return json.load(f)
+
+def extract_mod_config(param_meta):
+    out = {}
+    for k, meta in param_meta.items():
+        if meta.get("modulatable"):
+            out[k] = {
+                "mod_active": meta.get("mod_active", False),
+                "mod_source": meta.get("mod_source", None),
+                "mod_mode": meta.get("mod_mode", "add")
+            }
+    return out
 
 class Slider:
     def __init__(self, name, default, min_val, max_val, step, x, y, height):
@@ -260,8 +284,6 @@ class LFOControlPanel:
         pygame.draw.rect(screen, (40, 40, 40), pygame.Rect(self.x - 10, self.y - 30, 300, panel_height), border_radius=8)
         # LFO Title
         screen.blit(font.render(self.name.upper(), True, (255, 255, 255)), (self.x, self.y - 20))
-
-        self.waveform_dropdown.draw(screen, font)
         self.depth_slider.draw(screen, font)
 
         # Sync mode toggle
@@ -269,7 +291,7 @@ class LFOControlPanel:
         sync_label = "mHz" if self.config["sync_mode"] == "free" else "Q"
         screen.blit(font.render(sync_label, True, (255, 255, 255)),
                     (self.sync_button_rect.x + 8, self.sync_button_rect.y + 2))
-
+        self.waveform_dropdown.draw(screen, font)
         if self.config["sync_mode"] == "free":
             self.mhz_dropdown.draw(screen, font)
         else:
@@ -308,7 +330,7 @@ def create_sliders(param_specs, current_values):
     sliders = []
     dropdowns = []
     lfo_checkboxes = []
-
+    slider_count = 0
     dropdown_x = SLIDER_MARGIN
     dropdown_y = 20
     slider_x = SLIDER_MARGIN
@@ -323,6 +345,9 @@ def create_sliders(param_specs, current_values):
             dropdown_x += 200
 
         elif isinstance(spec, dict):
+            if slider_count >= 4:
+                continue
+            slider_count += 1
             default = spec["default"]
             min_val = spec.get("min", default / 2)
             max_val = spec.get("max", default * 2)
@@ -352,28 +377,43 @@ def create_sliders(param_specs, current_values):
 
 def launch_ui():
     pygame.init()
-
+    from lfo import BPM
+    # — Basic setup —
     show_simulator = True
-    current_height = FULL_HEIGHT
-    screen = pygame.display.set_mode((SCREEN_WIDTH, current_height), pygame.RESIZABLE)
+    screen = pygame.display.set_mode((SCREEN_WIDTH, FULL_HEIGHT), pygame.RESIZABLE)
     pygame.display.set_caption("LED Wall Touch UI")
     font = pygame.font.SysFont("monospace", FONT_SIZE)
+    button_font = pygame.font.SysFont("monospace", FONT_SIZE)
 
+    # — Patch grid setup —
+    PATCH_ROWS, PATCH_COLS = 8, 8
+    TOTAL_SLOTS = PATCH_ROWS * PATCH_COLS
+    patches = [None] * TOTAL_SLOTS
+    patch_icons = [None] * TOTAL_SLOTS
+    save_mode = False
 
+    # — LFO panels —
     lfo1_panel = LFOControlPanel("lfo1", SCREEN_WIDTH - 300, 90, LFO_CONFIG["lfo1"])
     lfo2_panel = LFOControlPanel("lfo2", SCREEN_WIDTH - 300, 200, LFO_CONFIG["lfo2"])
 
+    # — Patterns & sprites & colormaps —
     patterns = load_patterns()
     pattern_names = sorted(patterns.keys())
     current_index = 0
-    
-    # --- Load and Register Sprites---
-    sprites, sprite_names = load_sprites("sprites")
+    pattern_dropdown = Dropdown(
+        "PATTERN",
+        pattern_names,
+        pattern_names[current_index],
+        20, 10,
+        width=240,
+        show_label=False
+    )
 
+    sprites, sprite_names = load_sprites("sprites")
     from colormaps import COLORMAPS
     colormap_names = list(COLORMAPS.keys())
 
-    # pattern/module initialization
+    # — Initial pattern instance —
     module = patterns[pattern_names[current_index]]
     param_specs = module.PARAMS
     params = {k: v["default"] for k, v in param_specs.items()}
@@ -381,215 +421,309 @@ def launch_ui():
         param_specs["SPRITE"]["options"] = sprite_names
     pattern = module.Pattern(24, 24, params=params)
     sliders, dropdowns, mod_checkboxes = create_sliders(param_specs, params)
-    
-    # Add colormap dropdown directly, to sit next to pattern dropdown
-    selected_colormap = "jet"
+
+    # — Fixed dropdowns (won’t be recreated on pattern change) —
+    selected_colormap = params.get("COLORMAP", colormap_names[0])
     colormap_dropdown = Dropdown("COLORMAP", colormap_names, selected_colormap, 280, 10, width=250, show_label=False)
 
-    # Add sprite dropdown next to colormap
-    selected_sprite = "none"
-    sprite_dropdown = Dropdown("SPRITE", sprite_names, selected_sprite, 550, 10, width=250, show_label=False)
+    selected_sprite = params.get("SPRITE", "none")
+    sprite_dropdown  = Dropdown("SPRITE",  sprite_names,  selected_sprite,  550, 10, width=250, show_label=False)
 
-    button_font = pygame.font.SysFont("monospace", FONT_SIZE)
-    button_label = "Hide Simulator"
-    button_rect = pygame.Rect(SCREEN_WIDTH - 200, 10, 180, 30)
-    dropdown_rect = pygame.Rect(20, 10, 240, 30)
-    dropdown_open = False
-    tap_button_rect = pygame.Rect(SCREEN_WIDTH - 220, UI_HEIGHT - 90, 180, 45)
+    # — UI button rectangles —
+    sim_button_rect  = pygame.Rect(SCREEN_WIDTH - 200, 10, 180, 30)
+    save_button_rect = pygame.Rect(SCREEN_WIDTH - 420, UI_HEIGHT - 90, 180, 45)
+    tap_button_rect  = pygame.Rect(SCREEN_WIDTH - 220, UI_HEIGHT - 90, 180, 45)
     tap_times = []
+
+    GRID_X = 270
+    GRID_Y = 60
+    SLOT_SIZE = 50
+    SLOT_SP   = 4
+
+    patch_rects = []
+    for row in range(PATCH_ROWS):
+        for col in range(PATCH_COLS):
+            x = GRID_X + col*(SLOT_SIZE + SLOT_SP)
+            y = GRID_Y + row*(SLOT_SIZE + SLOT_SP)
+            patch_rects.append(pygame.Rect(x, y, SLOT_SIZE, SLOT_SIZE))
 
     clock = pygame.time.Clock()
     running = True
+    frame = None
 
     while running:
         screen.fill(BG_COLOR)
 
+        # — Event loop —
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                if button_rect.collidepoint(event.pos):
-                    show_simulator = not show_simulator
-                    button_label = "Hide Simulator" if show_simulator else "Show Simulator"
-                elif dropdown_rect.collidepoint(event.pos):
-                    dropdown_open = not dropdown_open
-                elif dropdown_open:
-                    for i, name in enumerate(pattern_names):
-                        entry_rect = pygame.Rect(dropdown_rect.x, dropdown_rect.y + 30 * (i+1), 240, 30)
-                        if entry_rect.collidepoint(event.pos):
-                            current_index = i
-                            module = patterns[name]
-                            param_specs = module.PARAMS
-
-                            # Fresh default values
-                            params = {k: v["default"] for k, v in param_specs.items()}
-
-                            # Inject persistent UI state
-                            params["COLORMAP"] = colormap_dropdown.selected
-                            params["SPRITE"] = sprite_dropdown.selected
-
-                            # 🔁 Disable modulation on pattern switch
-                            for key, spec in param_specs.items():
-                                if isinstance(spec, dict) and spec.get("modulatable"):
-                                    spec["mod_active"] = False
-                                    spec["mod_source"] = None
-
-                            # Rebuild UI elements
-                            sliders, dropdowns, mod_checkboxes = create_sliders(param_specs, params)
-                            pattern = module.Pattern(24, 24, params=params)
-
-                            dropdown_open = False
-                            break
-
-                elif tap_button_rect.collidepoint(event.pos):
-                    now = time.time()
-                    tap_times.append(now)
-                    tap_times = [t for t in tap_times if now - t < 3.0]  # keep recent taps
-                    if len(tap_times) >= 2:
-                        intervals = [b - a for a, b in zip(tap_times, tap_times[1:])]
-                        avg_interval = sum(intervals) / len(intervals)
-                        if avg_interval > 0:
-                            from lfo import __dict__ as lfo_globals
-                            lfo_globals["BPM"] = 60.0 / avg_interval
-        
-            lfo1_panel.handle_event(event)
-            lfo2_panel.handle_event(event)
-
-            for s in sliders:
-                s.handle_event(event)
-                if not instant_update and event.type == pygame.MOUSEBUTTONUP:
-                    params[s.name] = s.value
-                    pattern.update_params(params)
-            if instant_update:
-                for s in sliders:
-                    params[s.name] = s.value
-                pattern.update_params(params)
-            for d in dropdowns:
-                d.handle_event(event)
-                params[d.name] = d.selected
-                pattern.update_params(params)
+            # 1) First, let *every* UI control see *every* event:
+            pattern_dropdown.handle_event(event) 
+            colormap_dropdown.handle_event(event)
+            sprite_dropdown .handle_event(event)
+            for d in dropdowns: d.handle_event(event)
+            for s in sliders: s.handle_event(event)
             for c in mod_checkboxes:
                 if c.handle_event(event):
                     meta = pattern.param_meta.get(c.param_name)
-                    if meta and meta.get("modulatable"):
-                        if c.active:
-                            meta["mod_active"] = True
-                            meta["mod_source"] = c.source_id
-                            # Deactivate other sources
-                            for other in mod_checkboxes:
-                                if other.param_name == c.param_name and other != c:
-                                    other.active = False
+                    if not meta or not meta.get("modulatable"):
+                        continue
+
+                    # Turn modulation on/off
+                    meta["mod_active"] = c.active
+
+                    if c.active:
+                        # Set this checkbox’s source and clear others
+                        meta["mod_source"] = c.source_id
+                        for other in mod_checkboxes:
+                            if other is not c and other.param_name == c.param_name:
+                                other.active = False
+                    else:
+                        # No source if you turned it off
+                        meta["mod_source"] = None
+            lfo1_panel.handle_event(event)
+            lfo2_panel.handle_event(event)
+            
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                # Tap tempo
+                if tap_button_rect.collidepoint(event.pos):
+                    now = time.time()
+                    tap_times.append(now)
+                    tap_times = [t for t in tap_times if now - t < 3.0]
+                    if len(tap_times) >= 2:
+                        intervals = [b - a for a, b in zip(tap_times, tap_times[1:])]
+                        avg = sum(intervals) / len(intervals)
+                        if avg > 0:
+                            from lfo import BPM as _; import lfo; lfo.BPM = 60.0 / avg
+                    continue
+
+                # Simulator toggle
+                if sim_button_rect.collidepoint(event.pos):
+                    show_simulator = not show_simulator
+                    continue
+
+                # Toggle save mode
+                if save_button_rect.collidepoint(event.pos):
+                    save_mode = not save_mode
+                    continue
+
+                # Patch grid clicks
+
+                for i, slot in enumerate(patch_rects):
+                    if slot.collidepoint(event.pos):
+                        if save_mode:
+                            # Save slot i
+                            save_patch(i, pattern_names[current_index], params, pattern.param_meta, LFO_CONFIG)
+                            # capture thumbnail
+                            thumb = pygame.Surface((pattern.width, pattern.height))
+                            draw_simulator(thumb, frame or [], pattern.width, pattern.height,
+                                            pygame.Rect(0,0,pattern.width,pattern.height))
+                            patch_icons[i] = pygame.transform.smoothscale(thumb, (slot.width, slot.height))
+                            patches[i] = True
+                            save_mode = False
                         else:
-                            meta["mod_active"] = False
-                            meta["mod_source"] = None
+                            # Recall slot i
+                            if patches[i]:
+                                patch = load_patch(i)
+                                # Switch to the saved pattern
+                                pattern_name = patch["pattern"]
+                                current_index = pattern_names.index(pattern_name)
+                                pattern_dropdown.selected = pattern_name
+
+                                module      = patterns[pattern_name]
+                                param_specs = module.PARAMS
+
+                                # Inject saved params (incl. colormap & sprite)
+                                params = patch["params"].copy()
+                                if "COLORMAP" in params:
+                                    colormap_dropdown.selected = params["COLORMAP"]
+                                if "SPRITE"   in params:
+                                    sprite_dropdown.selected  = params["SPRITE"]
+
+                                # 3) Disable all modulatable defaults
+                                for meta in param_specs.values():
+                                    if isinstance(meta, dict) and meta.get("modulatable"):
+                                        meta["mod_active"] = False
+                                        meta["mod_source"] = None
+
+                                # Rebuild UI controls
+                                sliders, dropdowns, mod_checkboxes = create_sliders(param_specs, params)
+                                pattern = module.Pattern(24, 24, params=params)
+                                pattern.param_meta = param_specs
+
+                                # Restore modulation settings
+                                for key, m in patch["modulation"].items():
+                                    if key in param_specs:
+                                        param_specs[key]["mod_active"] = m["mod_active"]
+                                        param_specs[key]["mod_source"] = m["mod_source"]
+                                        param_specs[key]["mod_mode"]   = m["mod_mode"]
+                                        # sync your checkbox visuals
+                                        for c in mod_checkboxes:
+                                            if c.param_name == key and c.source_id == m["mod_source"]:
+                                                c.active = True
+
+                                # Restore LFO configuration
+                                from lfo import LFO_CONFIG as global_lfo
+                                global_lfo.update(patch["lfo_config"])
+                                for name, panel in (("lfo1", lfo1_panel), ("lfo2", lfo2_panel)):
+                                    cfg = global_lfo[name]
+                                    panel.config.update(cfg)
+                                    panel.waveform_dropdown.selected = cfg["waveform"]
+                                    panel.depth_slider.value         = cfg["depth"]
+                                    panel.sync_mode                  = cfg["sync_mode"]
+                                    if cfg["sync_mode"] == "free":
+                                        panel.mhz_dropdown.selected   = str(int(cfg["hz"] * 1000))
+                                    else:
+                                        panel.beat_dropdown.selected = panel._beats_label(cfg["period_beats"])
+
+                                # Finalize
+                                pattern.update_params(params)
+                        break
+                continue
         
-        colormap_dropdown.handle_event(event)
+
+        # If you want “instant” updates as you drag:
+        if instant_update:
+            for s in sliders:
+                params[s.name] = s.value
+            pattern.update_params(params)
+
+        # — After events: update dropdown-based params —
+        new_pat = pattern_dropdown.selected
+        if new_pat != pattern_names[current_index]:
+            current_index = pattern_names.index(new_pat)
+            module = patterns[new_pat]
+            param_specs = module.PARAMS
+
+            # reset params & inject colormap/sprite
+            params = {k: v["default"] for k, v in param_specs.items()}
+            params["COLORMAP"] = colormap_dropdown.selected
+            params["SPRITE"]   = sprite_dropdown.selected
+
+            # disable all modulation defaults
+            for meta in param_specs.values():
+                if isinstance(meta, dict) and meta.get("modulatable"):
+                    meta["mod_active"] = False
+                    meta["mod_source"] = None
+
+            sliders, dropdowns, mod_checkboxes = create_sliders(param_specs, params)
+            pattern = module.Pattern(24, 24, params=params)
+        
         params["COLORMAP"] = colormap_dropdown.selected
+        params["SPRITE"]   = sprite_dropdown.selected
         pattern.update_params(params)
 
-        sprite_dropdown.handle_event(event)
-        params["SPRITE"] = sprite_dropdown.selected
-        pattern.update_params(params)
-
+        # — Evaluate LFOs & render frame —
         lfo_signals = evaluate_lfos()
-        #print("LFO1:", round(lfo_signals["lfo1"], 3), "LFO2:", round(lfo_signals["lfo2"], 3))
         frame = pattern.render(lfo_signals=lfo_signals)
 
+        # — Sprite overlay (static or animated GIF) —
         sprite_name = params.get("SPRITE", "none")
-        if sprite_name != "none" and sprite_name in sprites:
-            sprite_frames = sprites[sprite_name]
+        if sprite_name in sprites and sprites[sprite_name]:
+            frames = sprites[sprite_name]
+            # sync to BPM: 1 beat per frame
+            from lfo import BPM
             bps = BPM / 60.0
-            num_frames = len(sprite_frames)
-            beats_per_frame = 1.0
-            elapsed = pygame.time.get_ticks() / 1000.0
-            beat_number = elapsed * bps
-            frame_idx = int(beat_number / beats_per_frame) % num_frames
-            sprite_surface = sprite_frames[frame_idx]
-
-            sprite_w, sprite_h = sprite_surface.get_size()
-            offset_x = (pattern.width - sprite_w) // 2
-            offset_y = (pattern.height - sprite_h) // 2
-
-            for y in range(sprite_h):
-                for x in range(sprite_w):
-                    sx, sy = x + offset_x, y + offset_y
-                    if 0 <= sx < pattern.width and 0 <= sy < pattern.height:
-                        rgba = sprite_surface.get_at((x, y))
-                        if rgba[3] > 0:  # alpha > 0
-                            idx = sy * pattern.width + sx
-                            frame[idx] = (rgba[0], rgba[1], rgba[2], 0)
-
+            beat = (pygame.time.get_ticks()/1000.0) * bps
+            idx = int(beat) % len(frames)
+            sprite_surf = frames[idx]
+            w,h = sprite_surf.get_size()
+            ox = (pattern.width - w)//2
+            oy = (pattern.height - h)//2
+            for yy in range(h):
+                for xx in range(w):
+                    rgba = sprite_surf.get_at((xx,yy))
+                    if rgba[3]>0:
+                        frame[ (oy+yy)*pattern.width + (ox+xx) ] = (rgba.r,rgba.g,rgba.b,0)
+        
+        ## Drawing Section 
+        # Simulator (background) ——————————————————————————————
         if show_simulator:
-            sim_rect = pygame.Rect(0, FULL_HEIGHT - SIM_HEIGHT, SCREEN_WIDTH, SIM_HEIGHT)
-            draw_simulator(screen, frame, pattern.width, pattern.height, sim_rect)
+            sim_rect = pygame.Rect(0, FULL_HEIGHT - SIM_HEIGHT,
+                                   SCREEN_WIDTH, SIM_HEIGHT)
+            draw_simulator(screen, frame,
+                           pattern.width, pattern.height,
+                           sim_rect)
 
 
-        # Draw LFOs
+
+        # Mode Buttons (Save-mode, Tap-tempo, Show/Hide) ————————
+        pygame.draw.rect(screen, (200,80,80) if save_mode else (80,200,80),
+                         save_button_rect, border_radius=4)
+        screen.blit(font.render(
+            "SAVE" if not save_mode else "SELECT SLOT", True, (255,255,255)),
+            (save_button_rect.x+10, save_button_rect.y+10))
+
+        pygame.draw.rect(screen, (90,90,90), tap_button_rect)
+        screen.blit(font.render("Tap Tempo", True, (255,255,255)),
+                    (tap_button_rect.x+20, tap_button_rect.y+10))
+
+        pygame.draw.rect(screen, (90,90,90), sim_button_rect)
+        screen.blit(button_font.render("Show/Hide", True, (255,255,255)),
+                    (sim_button_rect.x+10, sim_button_rect.y+5))
+
+        # Patch Grid Slots ——————————————————————————————
+        for i, slot in enumerate(patch_rects):
+            # slot background
+            pygame.draw.rect(screen, (50,50,50), slot)
+            # thumbnail icon
+            icon = patch_icons[i]
+            if icon:
+                ir = icon.get_rect(center=slot.center)
+                screen.blit(icon, ir)
+            # slot border (red if saving, gray otherwise)
+            border_col = (200,80,80) if save_mode else (100,100,100)
+            pygame.draw.rect(screen, border_col, slot, 2)
+
+        # LFO Outputs & BPM —————————————————————————————
+        # LFO1 bar
+        pygame.draw.rect(screen, (50,50,50), (20, UI_HEIGHT-100, 200, 20))
+        pygame.draw.rect(screen, (100,200,255),
+                         (20, UI_HEIGHT-100, int(200*lfo_signals["lfo1"]), 20))
+        screen.blit(font.render("LFO1", True, (255,255,255)),
+                    (230, UI_HEIGHT-100))
+
+        # LFO2 bar
+        pygame.draw.rect(screen, (50,50,50), (20, UI_HEIGHT-70, 200, 20))
+        pygame.draw.rect(screen, (255,100,200),
+                         (20, UI_HEIGHT-70, int(200*lfo_signals["lfo2"]), 20))
+        screen.blit(font.render("LFO2", True, (255,255,255)),
+                    (230, UI_HEIGHT-70))
+
+        # BPM text
+        import lfo
+        screen.blit(font.render(f"{int(lfo.BPM)} BPM", True, (200,255,200)),
+                    (tap_button_rect.x+20, tap_button_rect.y-20))
+
+        # LFO Control Panels, Sliders & Mod-Checkboxes —————————
+        for s in sliders:
+            s.draw(screen, font)
+        for c in mod_checkboxes:
+            c.draw(screen)
         lfo1_panel.draw(screen, font)
         lfo2_panel.draw(screen, font)
 
-        # Draw sliders
-        for s in sliders:
-            s.draw(screen, font)
-
-        # Draw dropdowns
+        # Parameter Dropdowns (closed first, then open on top) —————
         for d in dropdowns:
-            d.draw(screen, font)
-
-        # ✅ Draw modulation checkboxes
-        for c in mod_checkboxes:
-            c.draw(screen)
-
-        # redraw open dropdowns again last
-        if lfo1_panel.waveform_dropdown.open:
-            lfo1_panel.waveform_dropdown.draw(screen, font)
-        if lfo2_panel.waveform_dropdown.open:
-            lfo2_panel.waveform_dropdown.draw(screen, font)
-        if lfo1_panel.config["sync_mode"] == "free" and lfo1_panel.mhz_dropdown.open:
-            lfo1_panel.mhz_dropdown.draw(screen, font)
-        if lfo2_panel.config["sync_mode"] == "free" and lfo2_panel.mhz_dropdown.open:
-            lfo2_panel.mhz_dropdown.draw(screen, font)
-
-        pygame.draw.rect(screen, (90, 90, 90), button_rect)
-        screen.blit(button_font.render(button_label, True, (255, 255, 255)), (button_rect.x + 10, button_rect.y + 5))
-
-        # Draw tap tempo button
-        pygame.draw.rect(screen, (90, 90, 90), tap_button_rect)
-        screen.blit(font.render("Tap Tempo", True, (255, 255, 255)), (tap_button_rect.x + 20, tap_button_rect.y + 10))
-
-        # Draw the LFO output
-        pygame.draw.rect(screen, (50, 50, 50), (20, UI_HEIGHT - 100, 200, 20))
-        pygame.draw.rect(screen, (100, 200, 255), (20, UI_HEIGHT - 100, int(200 * lfo_signals["lfo1"]), 20))
-        screen.blit(font.render("LFO1", True, (255, 255, 255)), (230, UI_HEIGHT - 100))
-
-        pygame.draw.rect(screen, (50, 50, 50), (20, UI_HEIGHT - 70, 200, 20))
-        pygame.draw.rect(screen, (255, 100, 200), (20, UI_HEIGHT - 70, int(200 * lfo_signals["lfo2"]), 20))
-        screen.blit(font.render("LFO2", True, (255, 255, 255)), (230, UI_HEIGHT - 70))
-
-        # Show current BPM
-        from lfo import BPM
-        screen.blit(font.render(f"{int(BPM)} BPM", True, (200, 255, 200)), (tap_button_rect.x + 20, tap_button_rect.y - 20))
-                
-        pygame.draw.rect(screen, (120, 120, 120), dropdown_rect)
-        screen.blit(font.render(pattern_names[current_index], True, (255, 255, 255)), (dropdown_rect.x + 10, dropdown_rect.y + 5))
+            if not d.open:
+                d.draw(screen, font)
+        for d in dropdowns:
+            if d.open:
+                d.draw(screen, font)
+        
+        # Fixed Dropdowns (pattern / colormap / sprite) ———————
+        pattern_dropdown.draw(screen, font)
         colormap_dropdown.draw(screen, font)
         sprite_dropdown.draw(screen, font)
 
-        if dropdown_open:
-            for i, name in enumerate(pattern_names):
-                entry_rect = pygame.Rect(dropdown_rect.x, dropdown_rect.y + 30 * (i+1), 240, 30)
-                pygame.draw.rect(screen, (70, 70, 70), entry_rect)
-                screen.blit(font.render(name, True, (255, 255, 255)), (entry_rect.x + 10, entry_rect.y + 5))
 
-        new_height = FULL_HEIGHT if show_simulator else UI_HEIGHT
-        if screen.get_height() != new_height:
-            screen = pygame.display.set_mode((SCREEN_WIDTH, new_height), pygame.RESIZABLE)
-
+        # Final Flip 
         pygame.display.flip()
         clock.tick(30)
 
     pygame.quit()
+
 
 if __name__ == "__main__":
     launch_ui()
