@@ -7,8 +7,7 @@ import json
 from os.path import join, isfile
 from PIL import Image
 from lfo import evaluate_lfos, LFO_CONFIG, BPM
-
-
+from audio_env import evaluate_env, ENV_CONFIG
 
 # --- Config ---
 SCREEN_WIDTH = 1024
@@ -66,12 +65,13 @@ def load_sprites(folder="sprites"):
             sprite_names.append(name)
     return sprites, ["none"] + sprite_names
 
-def save_patch(index, pattern_name, params, param_meta, lfo_config):
+def save_patch(index, pattern_name, params, param_meta, lfo_config, env_config):
     patch = {
-        "pattern": pattern_name,
-        "params": params,
+        "pattern":    pattern_name,
+        "params":     params,
         "modulation": extract_mod_config(param_meta),
-        "lfo_config": lfo_config
+        "lfo_config": lfo_config,
+        "env_config": env_config
     }
     with open(f"patches/patch_{index:02d}.json", "w") as f:
         json.dump(patch, f, indent=2)
@@ -79,6 +79,69 @@ def save_patch(index, pattern_name, params, param_meta, lfo_config):
 def load_patch(index):
     with open(f"patches/patch_{index:02d}.json", "r") as f:
         return json.load(f)
+
+def restore_patch(index,
+                  pattern_names,
+                  patterns,
+                  lfo_panels,
+                  env_panels,
+                  create_sliders):
+    """
+    Load patch[index] from disk and:
+      1. Switch to the saved pattern
+      2. Rebuild sliders/dropdowns/checkboxes
+      3. Restore each param’s modulatable flags
+      4. Restore LFO_CONFIG into lfo_panels
+      5. Restore ENV_CONFIG into env_panels
+    Returns: (new_index, pattern, sliders, dropdowns, mod_checkboxes)
+    """
+    patch = load_patch(index)
+
+    # 1) Pattern switch
+    new_index    = pattern_names.index(patch["pattern"])
+    module       = patterns[pattern_names[new_index]]
+    param_specs  = module.PARAMS
+    params       = patch["params"].copy()
+    pattern      = module.Pattern(24, 24, params=params)
+
+    # 2) UI elements
+    sliders, dropdowns, mod_checkboxes = create_sliders(param_specs, params)
+
+    # 3) Modulation flags
+    for name, m in patch["modulation"].items():
+        meta = param_specs.get(name)
+        if not meta: continue
+        meta["mod_active"] = m["mod_active"]
+        meta["mod_source"] = m["mod_source"]
+        meta["mod_mode"]   = m["mod_mode"]
+        # update the matching checkbox
+        for cb in mod_checkboxes:
+            if cb.param_name == name:
+                cb.active = (cb.source_id == m["mod_source"])
+
+    # 4) LFOs
+    LFO_CONFIG.update(patch["lfo_config"])
+    for lname, panel in zip(("lfo1","lfo2"), lfo_panels):
+        cfg = LFO_CONFIG[lname]
+        panel.config.update(cfg)
+        panel.waveform_dropdown.selected = cfg["waveform"]
+        panel.depth_slider.value        = cfg["depth"]
+        panel.sync_mode                 = cfg["sync_mode"]
+        # …and their mhz/beat dropdowns…
+
+    # 5) Envelopes
+    ENV_CONFIG.update(patch["env_config"])
+    for pname, panel in zip(("envl","envh"), env_panels):
+        cfg = ENV_CONFIG[pname]
+        panel.th_slider.value    = cfg["threshold"]
+        panel.gn_slider.value    = cfg["gain"]
+        panel.at_slider.value    = cfg["attack"]
+        panel.rl_slider.value    = cfg["release"]
+        panel.mode_dd.selected   = cfg["mode"]
+        panel.config.update(cfg)
+
+    # 6) Return everything needed back into launch_ui
+    return new_index, pattern, sliders, dropdowns, mod_checkboxes
 
 def delete_patch(index):
     """
@@ -118,21 +181,22 @@ def make_thumbnail(pattern, frame, sprites, params, size):
     return pygame.transform.smoothscale(base, size)
 
 def extract_mod_config(param_meta):
-    out = {}
-    for k, meta in param_meta.items():
-        if meta.get("modulatable"):
-            out[k] = {
-                "mod_active": meta.get("mod_active", False),
-                "mod_source": meta.get("mod_source", None),
-                "mod_mode": meta.get("mod_mode", "add")
+    """Pull out only the modulatable entries for saving."""
+    mod_cfg = {}
+    for name, meta in param_meta.items():
+        if isinstance(meta, dict) and meta.get("modulatable"):
+            mod_cfg[name] = {
+                "mod_active": bool(meta.get("mod_source")),
+                "mod_source": meta.get("mod_source"),
+                "mod_mode":   meta.get("mod_mode", "add"),
             }
-    return out
+    return mod_cfg
 
 def draw_mod_indicator(screen, font, signals, label, key, color, idx):
     """
     Draw a centered bipolar bar for `signals[key]` in row `idx`.
-    - signals: dict of {"lfo1":…, "lfo2":…, "audio1":…, "audio2":…}
-    - label: text to show (“LFO1”, “AUDIO1”, etc.)
+    - signals: dict of {"lfo1":…, "lfo2":…, "envl":…, "envh":…}
+    - label: text to show (“LFO1”, “ENVL”, etc.)
     - key: the dict key
     - color: bar fill color
     - idx: which row [0…3]
@@ -359,9 +423,8 @@ class LFOControlPanel:
             self.config["period_beats"] = self._beats_value(self.beat_dropdown.selected)
 
     def draw(self, screen, font):
-        panel_height = 100
-
-        pygame.draw.rect(screen, (40, 40, 40), pygame.Rect(self.x - 10, self.y - 30, 300, panel_height), border_radius=8)
+    #Background
+        pygame.draw.rect(screen, (40, 40, 40), pygame.Rect(self.x-10, self.y-10, 300, 100), border_radius=4)
         # LFO Title
         screen.blit(font.render(self.name.upper(), True, (255, 255, 255)), (self.x, self.y - 20))
         self.depth_slider.draw(screen, font)
@@ -376,6 +439,122 @@ class LFOControlPanel:
             self.mhz_dropdown.draw(screen, font)
         else:
             self.beat_dropdown.draw(screen, font)
+
+class EnvelopeControlPanel:
+    def __init__(self, name, x, y, config):
+        """
+        name:     "envl" or "envh"
+        x, y:     top-left of panel
+        config:   the dict from ENV_CONFIG[name]
+        """
+        self.name   = name
+        self.x      = x
+        self.y      = y
+        self.config = config
+
+        # — Mapping for ms dropdowns → seconds —
+        self._atk_map = {"1ms":0.001,  "5ms":0.005,  "10ms":0.010, "20ms":0.020}
+        self._rel_map = {"25ms":0.025,"50ms":0.050,"100ms":0.100,"150ms":0.150}
+
+        # — COLUMN POSITIONS —
+        col1_x = x
+        col2_x = x + 100
+        col3_x = x + 200
+        row0  = y
+        row1  = y + 40
+
+        # — Gain slider: –20 dB … +20 dB —
+        self.gn_slider = HorizontalSlider(
+            f"{name}_gain",
+            config.get("gain_db", 0),         # store gain in dB
+            -20, 20, 1,
+            col1_x, row0,
+            90
+        )
+
+        # — Threshold slider: –40 dB … 0 dB —
+        self.th_slider = HorizontalSlider(
+            f"{name}_thr",
+            config.get("threshold_db", 0),    # store threshold in dB
+            -40, 0, 1,                        # min, max, step in dB
+            col1_x, row1,                     # pos
+            90                               # width
+        )
+
+        # — Attack dropdown —
+        atk_default = next(
+            (lbl for lbl,val in self._atk_map.items() if abs(val - config["attack"])<1e-6),
+            "10ms"
+        )
+        self.atk_dd = Dropdown(
+            f"{name}_atk",
+            list(self._atk_map.keys()),
+            atk_default,
+            col2_x+10, row0,
+            width=80,
+            show_label=False
+        )
+
+        # — Release dropdown —
+        rel_default = next(
+            (lbl for lbl,val in self._rel_map.items() if abs(val - config["release"])<1e-6),
+            "100ms"
+        )
+        self.rel_dd = Dropdown(
+            f"{name}_rel",
+            list(self._rel_map.keys()),
+            rel_default,
+            col3_x, row0,
+            width=80,
+            show_label=False
+        )
+
+        # — Mode dropdown —
+        self.mode_dd = Dropdown(
+            f"{name}_mode",
+            ["up", "down", "updown"],
+            config["mode"],
+            col3_x, row1,
+            width=80,
+            show_label=False
+        )
+
+    def handle_event(self, event):
+        # sliders
+        self.th_slider.handle_event(event)
+        self.gn_slider.handle_event(event)
+        # dropdowns
+        self.atk_dd .handle_event(event)
+        self.rel_dd .handle_event(event)
+        self.mode_dd.handle_event(event)
+
+        # write back into config
+        self.config["threshold_db"] = self.th_slider.value
+        self.config["gain_db"]      = self.gn_slider.value
+        self.config["attack"]       = self._atk_map[self.atk_dd.selected]
+        self.config["release"]      = self._rel_map[self.rel_dd.selected]
+        self.config["mode"]         = self.mode_dd.selected
+
+    def draw(self, screen, font):
+        # panel background
+        pygame.draw.rect(
+            screen,
+            (40,40,40),
+            (self.x-10, self.y-10, 300, 100),
+            border_radius=4
+        )
+        # title
+        screen.blit(
+            font.render(self.name.upper(), True, (255,255,255)),
+            (self.x, self.y-20)
+        )
+        # draw controls
+        self.th_slider.draw(screen, font)
+        self.gn_slider.draw(screen, font)
+        self.mode_dd .draw(screen, font)
+        self.atk_dd  .draw(screen, font)
+        self.rel_dd  .draw(screen, font)
+        
 
 
 def draw_simulator(screen, frame, grid_w, grid_h, rect):
@@ -442,8 +621,8 @@ def create_sliders(param_specs, current_values):
                 lfo_checkboxes.extend([
                     ModCheckbox(k, "lfo1", x_center, y_start + 0 * spacing, (100, 255, 255)),
                     ModCheckbox(k, "lfo2", x_center, y_start + 1 * spacing, (255, 100, 255)),
-                    ModCheckbox(k, "audio1", x_center, y_start + 2 * spacing, (255, 255, 100)),
-                    ModCheckbox(k, "audio2", x_center, y_start + 3 * spacing, (255, 150, 50))
+                    ModCheckbox(k, "envl", x_center, y_start + 2 * spacing, (255, 255, 100)),
+                    ModCheckbox(k, "envh", x_center, y_start + 3 * spacing, (255, 150, 50))
                 ])
 
             slider_x += SLIDER_WIDTH + SLIDER_MARGIN + 12
@@ -473,9 +652,11 @@ def launch_ui():
     save_mode = False
     clear_mode = False
 
-    # — LFO panels —
-    lfo1_panel = LFOControlPanel("lfo1", SCREEN_WIDTH - 300, 90, LFO_CONFIG["lfo1"])
-    lfo2_panel = LFOControlPanel("lfo2", SCREEN_WIDTH - 300, 200, LFO_CONFIG["lfo2"])
+    # — MOD panels —
+    lfo1_panel = LFOControlPanel("lfo1", SCREEN_WIDTH - 300, 70, LFO_CONFIG["lfo1"])
+    lfo2_panel = LFOControlPanel("lfo2", SCREEN_WIDTH - 300, 180, LFO_CONFIG["lfo2"])
+    envl_panel = EnvelopeControlPanel("envl", SCREEN_WIDTH - 300, 290, ENV_CONFIG["envl"])
+    envh_panel = EnvelopeControlPanel("envh", SCREEN_WIDTH - 300, 400, ENV_CONFIG["envh"])
 
     # — Patterns & sprites & colormaps —
     patterns = load_patterns()
@@ -582,9 +763,13 @@ def launch_ui():
                     else:
                         # No source if you turned it off
                         meta["mod_source"] = None
+            
             lfo1_panel.handle_event(event)
             lfo2_panel.handle_event(event)
-            
+            envl_panel.handle_event(event)
+            envh_panel.handle_event(event)
+
+
             if event.type == pygame.MOUSEBUTTONDOWN:
                 # Tap tempo
                 if tap_button_rect.collidepoint(event.pos):
@@ -612,47 +797,73 @@ def launch_ui():
                    clear_mode = not clear_mode
                    continue
                 
-                # Patch grid clicks
+                # — Patch grid clicks —
                 for i, slot in enumerate(patch_rects):
                     if slot.collidepoint(event.pos):
+
+                        # — SAVE MODE —
                         if save_mode:
-                            # Save slot i
+                            # Gather LFO settings
                             lfo_config = {
                                 "lfo1": lfo1_panel.config.copy(),
-                                "lfo2": lfo2_panel.config.copy()
+                                "lfo2": lfo2_panel.config.copy(),
+                            }
+                            # Gather ENV settings
+                            env_config = {
+                                "envl": envl_panel.config.copy(),
+                                "envh": envh_panel.config.copy(),
                             }
 
-                            save_patch(i, pattern_names[current_index], params, pattern.param_meta, lfo_config)
+                            # Save everything
+                            save_patch(
+                                i,
+                                pattern_names[current_index],
+                                params,
+                                pattern.param_meta,
+                                lfo_config,
+                                env_config
+                            )
+
                             # capture thumbnail
                             thumb = pygame.Surface((pattern.width, pattern.height))
-                            draw_simulator(thumb, frame or [], pattern.width, pattern.height,
-                                            pygame.Rect(0,0,pattern.width,pattern.height))
-                            patch_icons[i] = pygame.transform.smoothscale(thumb, (slot.width, slot.height))
+                            draw_simulator(
+                                thumb,
+                                frame or [],
+                                pattern.width,
+                                pattern.height,
+                                pygame.Rect(0, 0, pattern.width, pattern.height)
+                            )
+                            patch_icons[i] = pygame.transform.smoothscale(
+                                thumb, (slot.width, slot.height)
+                            )
                             patches[i] = True
                             save_mode = False
+
+                        # — CLEAR MODE —
                         elif clear_mode:
-                            # Clear slot i
                             delete_patch(i)
-                            patches[i]      = None
-                            patch_icons[i]  = None
-                            clear_mode      = False
+                            patches[i]     = None
+                            patch_icons[i] = None
+                            clear_mode     = False
+
+                        # — LOAD / RECALL MODE —
                         else:
-                            # Recall slot i
                             if patches[i]:
                                 patch = load_patch(i)
-                                # Switch to the saved pattern
-                                pattern_name = patch["pattern"]
-                                current_index = pattern_names.index(pattern_name)
+
+                                # 1) Switch to saved pattern
+                                pattern_name   = patch["pattern"]
+                                current_index  = pattern_names.index(pattern_name)
                                 pattern_dropdown.selected = pattern_name
 
                                 module      = patterns[pattern_name]
                                 param_specs = module.PARAMS
 
-                                # Inject saved params (incl. colormap & sprite)
+                                # 2) Restore params (including COLORMAP & SPRITE)
                                 params = patch["params"].copy()
                                 if "COLORMAP" in params:
                                     colormap_dropdown.selected = params["COLORMAP"]
-                                if "SPRITE"   in params:
+                                if "SPRITE" in params:
                                     sprite_dropdown.selected  = params["SPRITE"]
 
                                 # 3) Disable all modulatable defaults
@@ -661,46 +872,54 @@ def launch_ui():
                                         meta["mod_active"] = False
                                         meta["mod_source"] = None
 
-                                # Rebuild UI controls
+                                # 4) Rebuild UI controls
                                 sliders, dropdowns, mod_checkboxes = create_sliders(param_specs, params)
                                 pattern = module.Pattern(24, 24, params=params)
                                 pattern.param_meta = param_specs
 
-                                # Restore modulation settings
+                                # 5) Restore each param’s saved modulation flags
                                 for key, m in patch["modulation"].items():
                                     if key in param_specs:
                                         param_specs[key]["mod_active"] = m["mod_active"]
                                         param_specs[key]["mod_source"] = m["mod_source"]
                                         param_specs[key]["mod_mode"]   = m["mod_mode"]
-                                        # sync your checkbox visuals
+                                        # sync checkbox visuals
                                         for c in mod_checkboxes:
-                                            if c.param_name == key and c.source_id == m["mod_source"]:
+                                            if (c.param_name == key
+                                                and c.source_id == m["mod_source"]):
                                                 c.active = True
 
-                                # Restore LFO configuration
+                                # 6) Restore LFO configuration
                                 import lfo
-
-                                # for each LFO name, update the existing config dict in place
                                 for name, saved_cfg in patch["lfo_config"].items():
                                     if name in lfo.LFO_CONFIG:
                                         lfo.LFO_CONFIG[name].clear()
                                         lfo.LFO_CONFIG[name].update(saved_cfg)
-                                
                                 for name, panel in (("lfo1", lfo1_panel), ("lfo2", lfo2_panel)):
-                                    cfg = LFO_CONFIG[name]
+                                    cfg = lfo.LFO_CONFIG[name]
                                     panel.config.update(cfg)
                                     panel.waveform_dropdown.selected = cfg["waveform"]
                                     panel.depth_slider.value         = cfg["depth"]
                                     panel.sync_mode                  = cfg["sync_mode"]
                                     if cfg["sync_mode"] == "free":
-                                        panel.mhz_dropdown.selected   = str(int(cfg["hz"] * 1000))
+                                        panel.mhz_dropdown.selected    = str(int(cfg["hz"]*1000))
                                     else:
-                                        panel.beat_dropdown.selected = panel._beats_label(cfg["period_beats"])
+                                        panel.beat_dropdown.selected   = panel._beats_label(cfg["period_beats"])
 
-                                # Finalize
+                                for name, panel in (("envl", envl_panel),
+                                                    ("envh", envh_panel)):
+                                    cfg = ENV_CONFIG[name]
+                                    panel.th_slider.value  = cfg["threshold"]
+                                    panel.gn_slider.value  = cfg["gain"]
+                                    panel.at_slider.value  = cfg["attack"]
+                                    panel.rl_slider.value  = cfg["release"]
+                                    panel.mode_dd.selected = cfg["mode"]
+                                    panel.config.update(cfg)
+
+                                # 8) Finalize: update pattern.params so .render() sees everything
                                 pattern.update_params(params)
-                        break
-                continue
+
+                    break
         
         # Show/Hide the Simulator
         # pick the target size based on whether we’re showing the simulator
@@ -746,8 +965,11 @@ def launch_ui():
         pattern.update_params(params)
 
         # — Evaluate LFOs & render frame —
-        lfo_signals = evaluate_lfos()
-        frame = pattern.render(lfo_signals=lfo_signals)
+        mod_signals = evaluate_lfos()
+        mod_signals.update(evaluate_env())
+        print("DEBUG vals:", {k: round(v,3) for k,v in mod_signals.items()})
+        
+        frame = pattern.render(lfo_signals=mod_signals)
 
         # — Sprite overlay (static or animated GIF) —
         sprite_name = params.get("SPRITE", "none")
@@ -814,10 +1036,6 @@ def launch_ui():
             pygame.draw.rect(screen, border_col, slot, 2)
 
         # LFO Outputs & BPM —————————————————————————————
-        
-        audio_signals = {"audio1": 0.0, "audio2": 0.0} # temporary for testing
-        
-        mod_signals = {**lfo_signals, **audio_signals}
 
         # row 0: LFO1 (cyan)
         draw_mod_indicator(screen, font, mod_signals,
@@ -825,18 +1043,18 @@ def launch_ui():
         # row 1: LFO2 (magenta)
         draw_mod_indicator(screen, font, mod_signals,
                         "LFO2", "lfo2", (255,100,200), 1)
-        # row 2: AUDIO1 (yellow)
+        # row 2: ENVL (yellow)
         draw_mod_indicator(screen, font, mod_signals,
-                        "AUDIO1", "audio1", (255,255,100), 2)
-        # row 3: AUDIO2 (orange)
+                        "ENVL", "envl", (255,255,100), 2)
+        # row 3: ENVH (orange)
         draw_mod_indicator(screen, font, mod_signals,
-                        "AUDIO2", "audio2", (255,150, 50), 3)
+                        "ENVH", "envh", (255,150, 50), 3)
         # BPM text
         import lfo
         screen.blit(font.render(f"{int(lfo.BPM)} BPM", True, (200,255,200)),
                     (tap_button_rect.x+20, tap_button_rect.y-20))
 
-        # LFO Control Panels, Sliders & Mod-Checkboxes —————————
+        # LFO + RMS Control Panels, Sliders & Mod-Checkboxes —————————
         for s in sliders:
             s.draw(screen, font)
         for c in mod_checkboxes:
@@ -844,7 +1062,10 @@ def launch_ui():
         
         lfo2_panel.draw(screen, font)
         lfo1_panel.draw(screen, font)
-        
+        envh_panel.draw(screen, font)
+        envl_panel.draw(screen, font)
+
+
         # Parameter Dropdowns (closed first, then open on top) —————
         for d in dropdowns:
             if not d.open:
