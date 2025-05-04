@@ -126,6 +126,7 @@ def restore_patch(index,
         panel.config.update(cfg)
         panel.waveform_dropdown.selected = cfg["waveform"]
         panel.depth_slider.value        = cfg["depth"]
+        panel.offset_slider.value       = cfg.get("offset", 0.0)
         panel.sync_mode                 = cfg["sync_mode"]
         # …and their mhz/beat dropdowns…
 
@@ -399,9 +400,17 @@ class LFOControlPanel:
                                   label_map=self.wave_labels)
 
         self.depth_slider = HorizontalSlider(name + "_depth", config["depth"], 0.0, 1.0, 0.01,
-                                     x + 140, y + 5, 80)
+                                     x + 140, y + 5, 60)
 
-        self.sync_button_rect = pygame.Rect(x, y + 35, 100, 25)
+        self.offset_slider = HorizontalSlider(
+                name + "_offset",
+                config.get("offset", 0.0),
+                -1.0, 1.0, 0.01,
+                x + 210, y + 5,
+                60
+            )
+
+        self.sync_button_rect = pygame.Rect(x, y + 35, 100, 30)
 
         self.mhz_dropdown = Dropdown(
             name + "_mhz", ["50", "100", "200", "500", "1000"],
@@ -423,6 +432,7 @@ class LFOControlPanel:
     def handle_event(self, event):
         self.waveform_dropdown.handle_event(event)
         self.depth_slider.handle_event(event)
+        self.offset_slider.handle_event(event)
 
         if event.type == pygame.MOUSEBUTTONDOWN and self.sync_button_rect.collidepoint(event.pos):
             self.config["sync_mode"] = (
@@ -437,6 +447,7 @@ class LFOControlPanel:
         # Immediate update of config dict
         self.config["waveform"] = self.waveform_dropdown.selected
         self.config["depth"] = self.depth_slider.value
+        self.config["offset"]   = self.offset_slider.value
         if self.config["sync_mode"] == "free":
             self.config["hz"] = int(self.mhz_dropdown.selected) / 1000.0
         else:
@@ -448,6 +459,7 @@ class LFOControlPanel:
         # LFO Title
         screen.blit(font.render(self.name.upper(), True, (255, 255, 255)), (self.x, self.y - 20))
         self.depth_slider.draw(screen, font)
+        self.offset_slider.draw(screen, font)
 
         # Sync mode toggle
         pygame.draw.rect(screen, (90, 90, 90), self.sync_button_rect)
@@ -945,6 +957,7 @@ def launch_ui():
                                     panel.config.update(cfg)
                                     panel.waveform_dropdown.selected = cfg["waveform"]
                                     panel.depth_slider.value         = cfg["depth"]
+                                    panel.offset_slider.value         = cfg.get("offset", 0.0)
                                     panel.sync_mode                  = cfg["sync_mode"]
                                     if cfg["sync_mode"] == "free":
                                         panel.mhz_dropdown.selected    = str(int(cfg["hz"]*1000))

@@ -12,6 +12,7 @@ LFO_CONFIG = {
     "lfo1": {
         "waveform": "sine",
         "depth": 1.0,
+        "offset": 0.0,
         "sync_mode": "quantized",  # "free" or "quantized"
         "hz": 0.5,
         "period_beats": 1.0,  # Only used if quantized
@@ -20,6 +21,7 @@ LFO_CONFIG = {
     "lfo2": {
         "waveform": "triangle",
         "depth": 1.0,
+        "offset": 0.0,
         "sync_mode": "free",
         "hz": 0.2,
         "period_beats": 2.0,
@@ -53,9 +55,9 @@ def evaluate_lfos():
 
     for key, config in LFO_CONFIG.items():
         depth = config.get("depth", 1.0)
+        offset = config.get("offset", 0.0)
         shape = config.get("waveform", "sine")
         phase_offset = config.get("phase", 0.0)
-
         # Determine phase
         if config.get("sync_mode") == "quantized":
             beats_per_sec = BPM / 60.0
@@ -67,8 +69,12 @@ def evaluate_lfos():
 
         phase = ((now + phase_offset) % period) / period
         raw_value = _waveform(phase, shape)
-        modulated = (raw_value * 0.5 + 0.5) * depth
-        modulated = max(-depth, min(raw_value * depth, depth))
-        lfo_signals[key] = modulated
+        val = raw_value * depth + offset
+        # Clamp to [offset - depth, offset + depth]
+        minv = offset - depth
+        maxv = offset + depth
+        val  = max(minv, min(maxv, val))
+
+        lfo_signals[key] = val
 
     return lfo_signals
