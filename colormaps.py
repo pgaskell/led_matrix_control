@@ -59,6 +59,28 @@ def hsv_gradient(n=256, s=1.0, v=1.0):
         for i in range(n)
     ]
 
+def _gen_vu_lut(n):
+    """
+    n-step LUT: 
+      • 0 →  2/3 : green → yellow gradient  
+      • 2/3 → 11/12 : solid yellow  
+      • 11/12 → 1.0 : solid red  
+    """
+    lut = []
+    for i in range(n):
+        p = i / (n - 1)
+        if p < 2/3:
+            r = 127
+            g = 255
+            b = 0
+        elif p < 11/12:
+            r, g, b = 255, 255, 0
+        else:
+            r, g, b = 255, 0, 0
+        lut.append((r, g, b))
+    return lut
+
+
 COLORMAPS = {
     "jet": make_colormap_from_anchors([
         (0.0, (0, 0, 143)),
@@ -102,6 +124,39 @@ COLORMAPS = {
         (1.0, (253, 231, 37)),
     ]),
 
+    "red_blue": make_colormap_from_anchors([
+        (0.0, (127, 0, 0)),
+        (0.33, (255, 0, 255)),
+        (1.0, (0, 0, 127)),
+    ]),
+
+    "red_green": make_colormap_from_anchors([
+        (0.0, (127, 0, 0)),
+        (0.33, (255, 255, 0)),
+        (1.0, (0, 255, 0)),
+    ]),
+
+    "green_blue": make_colormap_from_anchors([
+        (0.0, (0, 127, 0)),
+        (0.33, (0, 255, 255)),
+        (1.0, (0, 0, 127)),
+    ]),
+
+    "red": make_colormap_from_anchors([
+        (0.0, (32, 0, 0)),
+        (1.0, (255, 0, 0)),
+    ]),
+
+    "green": make_colormap_from_anchors([
+        (0.0, (0, 32, 0)),
+        (1.0, (0, 255, 0)),
+    ]),
+
+    "blue": make_colormap_from_anchors([
+        (0.0, (0, 0, 32)),
+        (1.0, (0, 0, 255)),
+    ]),
+
     "lava_art": make_colormap_from_anchors([
         (0.0, (0.0, 0.0, 0.0)),    # Black
         (0.2, (0.05, 1.0, 0.1)),   # Greenish
@@ -112,6 +167,10 @@ COLORMAPS = {
     ], easing="ease_out"),
 
     "hsv_full": hsv_gradient(),
+
+    "rainbow": hsv_gradient(),
+
+    "vu_meter": _gen_vu_lut(256),
     
     "neon_spectrum": [
         (255, 0, 255), (0, 255, 255), (0, 255, 0), (255, 255, 0),

@@ -1,26 +1,38 @@
 {
-  "pattern": "plasma",
+  "pattern": "particle_vortex",
   "params": {
-    "NUM_GENERATORS": 1,
-    "MOVE_SPEED": 0.0,
-    "COLOR_CYCLE_SPEED": 0.022,
-    "COLORMAP": "warm_rainbow",
+    "SPAWN_RATE": 0.73,
+    "SWIRL_STRENGTH": 0.25,
+    "RADIAL_SPEED": 0.31,
+    "LIFESPAN": 2.0,
+    "HUE_SHIFT": 0.0,
+    "COLORMAP": "lava_art",
     "SPRITE": "none"
   },
   "modulation": {
-    "NUM_GENERATORS": {
+    "SPAWN_RATE": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
     },
-    "MOVE_SPEED": {
-      "mod_active": false,
-      "mod_source": null,
-      "mod_mode": "add"
-    },
-    "COLOR_CYCLE_SPEED": {
+    "SWIRL_STRENGTH": {
       "mod_active": true,
       "mod_source": "envl",
+      "mod_mode": "add"
+    },
+    "RADIAL_SPEED": {
+      "mod_active": true,
+      "mod_source": "envh",
+      "mod_mode": "add"
+    },
+    "LIFESPAN": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "add"
+    },
+    "HUE_SHIFT": {
+      "mod_active": false,
+      "mod_source": null,
       "mod_mode": "add"
     }
   },
@@ -45,7 +57,7 @@
   "env_config": {
     "envl": {
       "threshold_db": -10,
-      "gain_db": -32,
+      "gain_db": 0,
       "attack": 0.005,
       "release": 0.1,
       "mode": "up"

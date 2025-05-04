@@ -4,8 +4,8 @@
     "NUM_GENERATORS": 1,
     "MOVE_SPEED": 0.0,
     "COLOR_CYCLE_SPEED": 0.022,
-    "COLORMAP": "warm_rainbow",
-    "SPRITE": "none"
+    "COLORMAP": "red_blue",
+    "SPRITE": "MagicMushroom2"
   },
   "modulation": {
     "NUM_GENERATORS": {

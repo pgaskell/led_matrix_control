@@ -6,15 +6,18 @@ from colormaps import COLORMAPS
 PARAMS = {
     "NUM_GENERATORS": {
         "default": 3, "min": 1, "max": 8, "step": 1,
-        "modulatable": True
+        "modulatable": True,
+        "mod_mode": "add"
     },
     "MOVE_SPEED": {
         "default": 0.01, "min": -0.6, "max": 0.6, "step": 0.01,
-        "modulatable": True
+        "modulatable": True,
+        "mod_mode": "add"
     },
     "COLOR_CYCLE_SPEED": {
         "default": 0.0, "min": -0.1, "max": 0.1, "step": 0.001,
-        "modulatable": True
+        "modulatable": True,
+        "mod_mode": "add"
     },
     "COLORMAP": {
         "default": "warm_rainbow",
@@ -49,16 +52,23 @@ class Pattern(BasePattern):
         cycle_speed = self.params["COLOR_CYCLE_SPEED"]
 
         # Apply modulation
-        for key in ["NUM_GENERATORS", "MOVE_SPEED", "COLOR_CYCLE_SPEED"]:
+        for key in ("NUM_GENERATORS", "MOVE_SPEED", "COLOR_CYCLE_SPEED"):
             meta = self.param_meta.get(key, {})
-            if meta.get("modulatable") and meta.get("mod_active") and meta.get("mod_source") in (lfo_signals or {}):
-                val = apply_modulation(self.params[key], meta, lfo_signals)
+            if meta.get("modulatable") and meta.get("mod_active"):
+                # 1) Identify which LFO/ENV source to use
+                src = meta.get("mod_source")
+                # 2) Grab that one numeric value (default 0.0)
+                amt = (lfo_signals or {}).get(src, 0.0)
+                # 3) Compute the new, scaled parameter
+                mod_val = apply_modulation(self.params[key], meta, amt)
+
+                # 4) Assign back
                 if key == "NUM_GENERATORS":
-                    num_gen = int(max(1, round(val)))
+                    num_gen     = max(1, int(round(mod_val)))
                 elif key == "MOVE_SPEED":
-                    move_speed = val
+                    move_speed  = mod_val
                 elif key == "COLOR_CYCLE_SPEED":
-                    cycle_speed = val
+                    cycle_speed = mod_val
 
         cmap = COLORMAPS.get(self.params["COLORMAP"], COLORMAPS["jet"])
         cmap_len = len(cmap)

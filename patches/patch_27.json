@@ -1,26 +1,38 @@
 {
-  "pattern": "plasma",
+  "pattern": "starfield",
   "params": {
-    "NUM_GENERATORS": 1,
-    "MOVE_SPEED": 0.0,
-    "COLOR_CYCLE_SPEED": 0.022,
-    "COLORMAP": "warm_rainbow",
+    "STAR_COUNT": 310,
+    "SPEED": 1.0,
+    "FOV": 420.0,
+    "TWINKLE": 0.84,
+    "COLOR_SHIFT": 0.0,
+    "COLORMAP": "red_green",
     "SPRITE": "none"
   },
   "modulation": {
-    "NUM_GENERATORS": {
+    "STAR_COUNT": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "replace"
+    },
+    "SPEED": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
     },
-    "MOVE_SPEED": {
+    "FOV": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
     },
-    "COLOR_CYCLE_SPEED": {
-      "mod_active": true,
-      "mod_source": "envl",
+    "TWINKLE": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "scale"
+    },
+    "COLOR_SHIFT": {
+      "mod_active": false,
+      "mod_source": null,
       "mod_mode": "add"
     }
   },
@@ -45,7 +57,7 @@
   "env_config": {
     "envl": {
       "threshold_db": -10,
-      "gain_db": -32,
+      "gain_db": 0,
       "attack": 0.005,
       "release": 0.1,
       "mode": "up"

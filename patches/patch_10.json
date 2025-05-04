@@ -1,24 +1,31 @@
 {
-  "pattern": "spiral_drift",
+  "pattern": "circles",
   "params": {
-    "SPIRAL_SPEED": 0.05,
-    "NUM_ARMS": 4,
-    "ARM_THICKNESS": 0.1,
+    "NUM_GENERATORS": 4,
+    "MOVE_SPEED": 0.1,
+    "COLOR_CYCLE_SPEED": 0.0,
     "COLORMAP": "warm_rainbow",
-    "SPRITE": "Chick"
+    "SPRITE": "none",
+    "PALETTE_SHIFT": 0.02,
+    "CIRCLE_THICKNESS": 1.0
   },
   "modulation": {
-    "SPIRAL_SPEED": {
+    "NUM_GENERATORS": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
     },
-    "NUM_ARMS": {
+    "MOVE_SPEED": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
     },
-    "ARM_THICKNESS": {
+    "PALETTE_SHIFT": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "add"
+    },
+    "CIRCLE_THICKNESS": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
@@ -40,6 +47,22 @@
       "hz": 0.2,
       "period_beats": 2.0,
       "phase": 0.0
+    }
+  },
+  "env_config": {
+    "envl": {
+      "threshold_db": -40,
+      "gain_db": 10,
+      "attack": 0.005,
+      "release": 0.1,
+      "mode": "up"
+    },
+    "envh": {
+      "threshold_db": 20,
+      "gain_db": -40,
+      "attack": 0.005,
+      "release": 0.1,
+      "mode": "up"
     }
   }
 }

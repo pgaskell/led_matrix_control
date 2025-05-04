@@ -5,15 +5,18 @@ from colormaps import COLORMAPS
 PARAMS = {
     "SQUARE_X": {
         "default": 0.5, "min": 0.0, "max": 1.0, "step": 0.01,
-        "modulatable": True
+        "modulatable": True,
+        "mod_mode": "replace"
     },
     "SQUARE_Y": {
         "default": 0.5, "min": 0.0, "max": 1.0, "step": 0.01,
-        "modulatable": True
+        "modulatable": True,
+        "mod_mode": "replace"
     },
     "LUT_INDEX": {
         "default": 0.5, "min": 0.0, "max": 1.0, "step": 0.01,
-        "modulatable": True
+        "modulatable": True,
+        "mod_mode": "replace"
     }  
 }
 
@@ -29,21 +32,24 @@ class Pattern(BasePattern):
         lut_index = self.params["LUT_INDEX"]
 
         # Apply modulation
-        for key in ["SQUARE_X", "SQUARE_Y", "LUT_INDEX"]:
-            meta = self.param_meta.get(key)
-            if (
-                meta.get("modulatable")
-                and "mod_active" in meta
-                and meta["mod_active"]
-                and meta.get("mod_source") in (lfo_signals or {})
-            ):
-                mod_val = apply_modulation(self.params[key], meta, lfo_signals or {})
+        for key in ("SQUARE_X", "SQUARE_Y", "LUT_INDEX"):
+            meta = self.param_meta.get(key, {})
+            if meta.get("modulatable") and meta.get("mod_active"):
+                # 1) figure out which signal we’re supposed to use
+                src = meta.get("mod_source")  
+                # 2) grab that one float (default to 0.0)
+                amt = (lfo_signals or {}).get(src, 0.0)
+                # 3) now scale it into your param’s min/max
+                mod_val = apply_modulation(self.params[key], meta, amt)
+
+                # 4) assign back to your locals
                 if key == "SQUARE_X":
                     x_norm = mod_val
                 elif key == "SQUARE_Y":
                     y_norm = mod_val
                 elif key == "LUT_INDEX":
-                    lut_index = mod_val
+                    # if you need an integer index:
+                    lut_index = int(round(mod_val))
 
         # Get color from colormap
         cmap = COLORMAPS.get(self.params["COLORMAP"], COLORMAPS["jet"])

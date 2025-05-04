@@ -6,7 +6,8 @@ from colormaps import COLORMAPS
 PARAMS = {
     "NUM_WAVES": {
         "default": 5, "min": 1, "max": 20, "step": 1,
-        "modulatable": True
+        "modulatable": True,
+        "mod_mode": "add"
     },
     "WAVE_SPEED": {
         "default": 0.1, "min": 0.01, "max": 0.2, "step": 0.01,
@@ -14,11 +15,13 @@ PARAMS = {
     },
     "SPATIAL_FREQ": {
         "default": 0.15, "min": 0.01, "max": 0.4, "step": 0.01,
-        "modulatable": True
+        "modulatable": True,
+        "mod_mode": "add"
     },
     "COLOR_CYCLE_SPEED": {
         "default": 0.01, "min": 0.0, "max": 0.5, "step": 0.001,
-        "modulatable": True
+        "modulatable": True,
+        "mod_mode": "add"
     },
     "COLORMAP": {
         "default": "lava_art",
@@ -56,18 +59,25 @@ class Pattern(BasePattern):
         color_shift = self.params["COLOR_CYCLE_SPEED"]
 
         # Apply modulation
-        for key in ["NUM_WAVES", "WAVE_SPEED", "SPATIAL_FREQ", "COLOR_CYCLE_SPEED"]:
+        for key in ("NUM_WAVES", "WAVE_SPEED", "SPATIAL_FREQ", "COLOR_CYCLE_SPEED"):
             meta = self.param_meta.get(key, {})
-            if meta.get("modulatable") and meta.get("mod_active") and meta.get("mod_source") in (lfo_signals or {}):
-                val = apply_modulation(self.params[key], meta, lfo_signals)
+            if meta.get("modulatable") and meta.get("mod_active"):
+                # 1) which signal to use?
+                src = meta.get("mod_source")
+                # 2) pull out that one float (default 0.0)
+                amt = (lfo_signals or {}).get(src, 0.0)
+                # 3) scale it to [min…max] according to your mod_mode
+                mod_val = apply_modulation(self.params[key], meta, amt)
+
+                # 4) store back into your local variables
                 if key == "NUM_WAVES":
-                    num_waves = int(max(1, round(val)))
+                    num_waves      = max(1, int(round(mod_val)))
                 elif key == "WAVE_SPEED":
-                    wave_speed = val
+                    wave_speed     = mod_val
                 elif key == "SPATIAL_FREQ":
-                    spatial_freq = val
+                    spatial_freq   = mod_val
                 elif key == "COLOR_CYCLE_SPEED":
-                    color_shift = val
+                    color_shift    = mod_val
 
         cmap = COLORMAPS.get(self.params["COLORMAP"], COLORMAPS["jet"])
         cmap_len = len(cmap)

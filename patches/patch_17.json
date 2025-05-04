@@ -1,26 +1,26 @@
 {
-  "pattern": "plasma",
+  "pattern": "stripes",
   "params": {
-    "NUM_GENERATORS": 1,
-    "MOVE_SPEED": 0.0,
-    "COLOR_CYCLE_SPEED": 0.022,
-    "COLORMAP": "warm_rainbow",
-    "SPRITE": "none"
+    "STRIPE_SPEED": 0.1,
+    "STRIPE_WIDTH": 1.0,
+    "STRIPE_ANGLE": 45.0,
+    "COLORMAP": "lava_art",
+    "SPRITE": "EmojiLove"
   },
   "modulation": {
-    "NUM_GENERATORS": {
+    "STRIPE_SPEED": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
     },
-    "MOVE_SPEED": {
+    "STRIPE_WIDTH": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
     },
-    "COLOR_CYCLE_SPEED": {
-      "mod_active": true,
-      "mod_source": "envl",
+    "STRIPE_ANGLE": {
+      "mod_active": false,
+      "mod_source": null,
       "mod_mode": "add"
     }
   },
@@ -45,7 +45,7 @@
   "env_config": {
     "envl": {
       "threshold_db": -10,
-      "gain_db": -32,
+      "gain_db": 0,
       "attack": 0.005,
       "release": 0.1,
       "mode": "up"

@@ -133,10 +133,10 @@ def restore_patch(index,
     ENV_CONFIG.update(patch["env_config"])
     for pname, panel in zip(("envl","envh"), env_panels):
         cfg = ENV_CONFIG[pname]
-        panel.th_slider.value    = cfg["threshold"]
-        panel.gn_slider.value    = cfg["gain"]
-        panel.at_slider.value    = cfg["attack"]
-        panel.rl_slider.value    = cfg["release"]
+        panel.th_slider.value    = cfg["threshold_db"]
+        panel.gn_slider.value    = cfg["gain_db"]
+        panel.atk_dd.selected    = cfg["attack"]
+        panel.rel_dd.selected    = cfg["release"]
         panel.mode_dd.selected   = cfg["mode"]
         panel.config.update(cfg)
 
@@ -235,12 +235,13 @@ def draw_mod_indicator(screen, font, signals, label, key, color, idx):
     #            (bar_x + bar_w + 10, bar_y))
 
 class Slider:
-    def __init__(self, name, default, min_val, max_val, step, x, y, height):
+    def __init__(self, name, default, min_val, max_val, step, x, y, height, valid_values=None):
         self.name = name
         self.value = default
         self.min = min_val
         self.max = max_val
         self.step = step
+        self.valid_values = valid_values
         self.rect = pygame.Rect(x, y, SLIDER_WIDTH, height)
         self.active = False
 
@@ -265,6 +266,13 @@ class Slider:
             raw_value = self.max - ratio * (self.max - self.min)
             stepped_value = round(raw_value / self.step) * self.step
             self.value = min(max(stepped_value, self.min), self.max)
+            if self.valid_values:
+                # snap to the nearest entry in valid_values
+                closest = min(self.valid_values, key=lambda v: abs(v - raw_value))
+                self.value = closest
+            else:
+                stepped = round(raw_value / self.step) * self.step
+                self.value = min(max(stepped, self.min), self.max)
 
 class HorizontalSlider:
     HEIGHT = 20
@@ -335,19 +343,31 @@ class Dropdown:
         if event.type == pygame.MOUSEBUTTONDOWN:
             if self.rect.collidepoint(event.pos):
                 self.open = not self.open
-            elif self.open:
+                return True
+            
+            if self.open:
+                entry_h = self.rect.height
                 for i, opt in enumerate(self.options):
-                    option_rect = pygame.Rect(self.x, self.y + self.height * (i + 1), self.width, self.height)
-                    if option_rect.collidepoint(event.pos):
+                    entry_rect = pygame.Rect(
+                        self.x,
+                        self.y + entry_h * (i + 1),
+                        self.width,
+                        entry_h
+                    )
+                    if entry_rect.collidepoint(event.pos):
                         self.selected = opt
                         self.open = False
-                        break
-                else:
-                    self.open = False
+                        return True
+            
+                self.open = False
+                return True
+            
+            return False
 
     def draw(self, screen, font):
         pygame.draw.rect(screen, (100, 100, 100), self.rect)
         display_text = self.label_map.get(self.selected, self.selected)
+        display_text = str(display_text)
         screen.blit(font.render(display_text, True, (255, 255, 255)), (self.x + 6, self.y + 4))
 
         if self.show_label:
@@ -467,7 +487,7 @@ class EnvelopeControlPanel:
         self.gn_slider = HorizontalSlider(
             f"{name}_gain",
             config.get("gain_db", 0),         # store gain in dB
-            -20, 20, 1,
+            -40, 10, 1,
             col1_x, row0,
             90
         )
@@ -476,7 +496,7 @@ class EnvelopeControlPanel:
         self.th_slider = HorizontalSlider(
             f"{name}_thr",
             config.get("threshold_db", 0),    # store threshold in dB
-            -40, 0, 1,                        # min, max, step in dB
+            -40, 20, 1,                        # min, max, step in dB
             col1_x, row1,                     # pos
             90                               # width
         )
@@ -527,7 +547,6 @@ class EnvelopeControlPanel:
         self.atk_dd .handle_event(event)
         self.rel_dd .handle_event(event)
         self.mode_dd.handle_event(event)
-
         # write back into config
         self.config["threshold_db"] = self.th_slider.value
         self.config["gain_db"]      = self.gn_slider.value
@@ -612,7 +631,26 @@ def create_sliders(param_specs, current_values):
             max_val = spec.get("max", default * 2)
             step = spec.get("step", 0.1)
             height = int((UI_HEIGHT - 100) * 0.6)
-            sliders.append(Slider(k, current_values[k], min_val, max_val, step, slider_x, slider_y, height))
+            
+            if "valid" in spec:
+                valid_vals = spec["valid"]
+                # slider will snap to those
+                min_val, max_val = min(valid_vals), max(valid_vals)
+                step = 1
+                sliders.append(
+                Slider(k, current_values[k], min_val, max_val, step,
+                        slider_x, slider_y, height,
+                        valid_values=valid_vals)
+                )
+            else:
+                default = spec["default"]
+                min_val = spec.get("min", default/2)
+                max_val = spec.get("max", default*2)
+                step    = spec.get("step", 0.1)
+                sliders.append(
+                Slider(k, current_values[k], min_val, max_val, step,
+                        slider_x, slider_y, height)
+                )
 
             if spec.get("modulatable"):
                 x_center = slider_x + SLIDER_WIDTH // 2 - 10
@@ -740,9 +778,9 @@ def launch_ui():
             if event.type == pygame.QUIT:
                 running = False
             # 1) First, let *every* UI control see *every* event:
-            pattern_dropdown.handle_event(event) 
-            colormap_dropdown.handle_event(event)
-            sprite_dropdown .handle_event(event)
+            # pattern_dropdown.handle_event(event) 
+            # colormap_dropdown.handle_event(event)
+            # sprite_dropdown .handle_event(event)
             for d in dropdowns: d.handle_event(event)
             for s in sliders: s.handle_event(event)
             for c in mod_checkboxes:
@@ -771,7 +809,15 @@ def launch_ui():
 
 
             if event.type == pygame.MOUSEBUTTONDOWN:
-                # Tap tempo
+                # First, let the top dropdowns handle it
+                # (pattern dropdown, colormap dropdown, sprite dropdown)
+                if pattern_dropdown.handle_event(event):
+                    continue
+                if colormap_dropdown.handle_event(event):
+                    continue
+                if sprite_dropdown.handle_event(event):
+                    continue
+           # Tap tempo
                 if tap_button_rect.collidepoint(event.pos):
                     now = time.time()
                     tap_times.append(now)
@@ -800,7 +846,7 @@ def launch_ui():
                 # — Patch grid clicks —
                 for i, slot in enumerate(patch_rects):
                     if slot.collidepoint(event.pos):
-
+                        
                         # — SAVE MODE —
                         if save_mode:
                             # Gather LFO settings
@@ -890,13 +936,12 @@ def launch_ui():
                                                 c.active = True
 
                                 # 6) Restore LFO configuration
-                                import lfo
                                 for name, saved_cfg in patch["lfo_config"].items():
-                                    if name in lfo.LFO_CONFIG:
-                                        lfo.LFO_CONFIG[name].clear()
-                                        lfo.LFO_CONFIG[name].update(saved_cfg)
+                                    if name in LFO_CONFIG:
+                                        LFO_CONFIG[name].clear()
+                                        LFO_CONFIG[name].update(saved_cfg)
                                 for name, panel in (("lfo1", lfo1_panel), ("lfo2", lfo2_panel)):
-                                    cfg = lfo.LFO_CONFIG[name]
+                                    cfg = LFO_CONFIG[name]
                                     panel.config.update(cfg)
                                     panel.waveform_dropdown.selected = cfg["waveform"]
                                     panel.depth_slider.value         = cfg["depth"]
@@ -905,21 +950,36 @@ def launch_ui():
                                         panel.mhz_dropdown.selected    = str(int(cfg["hz"]*1000))
                                     else:
                                         panel.beat_dropdown.selected   = panel._beats_label(cfg["period_beats"])
-
+                                
+                                # — Restore ENV configuration —
+                                for name, saved_cfg in patch["env_config"].items():
+                                    if name in ENV_CONFIG:
+                                        ENV_CONFIG[name].clear()
+                                        ENV_CONFIG[name].update(saved_cfg)
+                                # Sync each envelope panel to the newly restored ENV_CONFIG
                                 for name, panel in (("envl", envl_panel),
                                                     ("envh", envh_panel)):
                                     cfg = ENV_CONFIG[name]
-                                    panel.th_slider.value  = cfg["threshold"]
-                                    panel.gn_slider.value  = cfg["gain"]
-                                    panel.at_slider.value  = cfg["attack"]
-                                    panel.rl_slider.value  = cfg["release"]
+                                    # sliders
+                                    panel.th_slider.value = cfg["threshold_db"]
+                                    panel.gn_slider.value = cfg["gain_db"]
+                                    panel.atk_dd.selected = next(
+                                        lbl for lbl,sec in panel._atk_map.items()
+                                        if abs(sec - cfg["attack"]) < 1e-6
+                                    )
+                                    panel.rel_dd.selected = next(
+                                        lbl for lbl,sec in panel._rel_map.items()
+                                        if abs(sec - cfg["release"]) < 1e-6
+                                    )
                                     panel.mode_dd.selected = cfg["mode"]
+                    
+                                    # finally update panel.config so future handle_event sees it
                                     panel.config.update(cfg)
 
                                 # 8) Finalize: update pattern.params so .render() sees everything
                                 pattern.update_params(params)
 
-                    break
+                            break
         
         # Show/Hide the Simulator
         # pick the target size based on whether we’re showing the simulator
@@ -967,7 +1027,7 @@ def launch_ui():
         # — Evaluate LFOs & render frame —
         mod_signals = evaluate_lfos()
         mod_signals.update(evaluate_env())
-        print("DEBUG vals:", {k: round(v,3) for k,v in mod_signals.items()})
+        #print("DEBUG vals:", {k: round(v,3) for k,v in mod_signals.items()})
         
         frame = pattern.render(lfo_signals=mod_signals)
 
@@ -1060,11 +1120,11 @@ def launch_ui():
         for c in mod_checkboxes:
             c.draw(screen)
         
-        lfo2_panel.draw(screen, font)
-        lfo1_panel.draw(screen, font)
+
         envh_panel.draw(screen, font)
         envl_panel.draw(screen, font)
-
+        lfo2_panel.draw(screen, font)
+        lfo1_panel.draw(screen, font)
 
         # Parameter Dropdowns (closed first, then open on top) —————
         for d in dropdowns:

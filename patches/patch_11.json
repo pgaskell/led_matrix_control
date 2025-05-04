@@ -1,11 +1,13 @@
 {
-  "pattern": "plasma",
+  "pattern": "circles",
   "params": {
-    "NUM_GENERATORS": 1,
-    "MOVE_SPEED": 0.0,
-    "COLOR_CYCLE_SPEED": 0.022,
+    "NUM_GENERATORS": 4,
+    "MOVE_SPEED": 0.1,
+    "COLOR_CYCLE_SPEED": 0.0,
     "COLORMAP": "warm_rainbow",
-    "SPRITE": "none"
+    "SPRITE": "none",
+    "PALETTE_SHIFT": 0.02,
+    "CIRCLE_THICKNESS": 1.0
   },
   "modulation": {
     "NUM_GENERATORS": {
@@ -18,9 +20,14 @@
       "mod_source": null,
       "mod_mode": "add"
     },
-    "COLOR_CYCLE_SPEED": {
-      "mod_active": true,
-      "mod_source": "envl",
+    "PALETTE_SHIFT": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "add"
+    },
+    "CIRCLE_THICKNESS": {
+      "mod_active": false,
+      "mod_source": null,
       "mod_mode": "add"
     }
   },
@@ -44,15 +51,15 @@
   },
   "env_config": {
     "envl": {
-      "threshold_db": -10,
-      "gain_db": -32,
+      "threshold_db": 20,
+      "gain_db": -40,
       "attack": 0.005,
       "release": 0.1,
       "mode": "up"
     },
     "envh": {
-      "threshold_db": -10,
-      "gain_db": 0,
+      "threshold_db": -40,
+      "gain_db": 10,
       "attack": 0.005,
       "release": 0.1,
       "mode": "up"

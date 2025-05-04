@@ -1,32 +1,33 @@
 {
-  "pattern": "interference",
+  "pattern": "circles",
   "params": {
-    "NUM_WAVES": 5,
-    "WAVE_SPEED": 0.1,
-    "SPATIAL_FREQ": 0.15,
-    "COLOR_CYCLE_SPEED": 0.325,
-    "COLORMAP": "ultra_rainbow",
-    "SPRITE": "none"
+    "NUM_GENERATORS": 4,
+    "MOVE_SPEED": 0.1,
+    "COLOR_CYCLE_SPEED": 0.0,
+    "COLORMAP": "warm_rainbow",
+    "SPRITE": "none",
+    "PALETTE_SHIFT": 0.02,
+    "CIRCLE_THICKNESS": 1.0
   },
   "modulation": {
-    "NUM_WAVES": {
-      "mod_active": false,
-      "mod_source": null,
+    "NUM_GENERATORS": {
+      "mod_active": true,
+      "mod_source": "lfo1",
       "mod_mode": "add"
     },
-    "WAVE_SPEED": {
-      "mod_active": false,
-      "mod_source": null,
+    "MOVE_SPEED": {
+      "mod_active": true,
+      "mod_source": "lfo2",
       "mod_mode": "add"
     },
-    "SPATIAL_FREQ": {
-      "mod_active": false,
-      "mod_source": null,
+    "PALETTE_SHIFT": {
+      "mod_active": true,
+      "mod_source": "envl",
       "mod_mode": "add"
     },
-    "COLOR_CYCLE_SPEED": {
-      "mod_active": false,
-      "mod_source": null,
+    "CIRCLE_THICKNESS": {
+      "mod_active": true,
+      "mod_source": "envh",
       "mod_mode": "add"
     }
   },
@@ -42,10 +43,26 @@
     "lfo2": {
       "waveform": "triangle",
       "depth": 1.0,
-      "sync_mode": "free",
+      "sync_mode": "quantized",
       "hz": 0.2,
-      "period_beats": 2.0,
+      "period_beats": 4.0,
       "phase": 0.0
+    }
+  },
+  "env_config": {
+    "envl": {
+      "threshold_db": -10,
+      "gain_db": -26,
+      "attack": 0.005,
+      "release": 0.1,
+      "mode": "up"
+    },
+    "envh": {
+      "threshold_db": -10,
+      "gain_db": 0,
+      "attack": 0.005,
+      "release": 0.1,
+      "mode": "up"
     }
   }
 }

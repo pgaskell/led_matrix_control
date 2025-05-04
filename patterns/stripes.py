@@ -5,15 +5,18 @@ from colormaps import COLORMAPS
 PARAMS = {
     "STRIPE_SPEED": {
         "default": 0.1, "min": -1.0, "max": 1.0, "step": 0.01,
-        "modulatable": True
+        "modulatable": True,
+        "mod_mode": "add"
     },
     "STRIPE_WIDTH": {
         "default": 1.0, "min": 0.5, "max": 5.0, "step": 0.5,
-        "modulatable": True
+        "modulatable": True,
+        "mod_mode": "add"
     },
     "STRIPE_ANGLE": {
         "default": 45.0, "min": 0.0, "max": 360.0, "step": 1.0,
-        "modulatable": True
+        "modulatable": True,
+        "mod_mode": "add"
     },
     "COLORMAP": {
         "default": "warm_rainbow",
@@ -40,14 +43,21 @@ class Pattern(BasePattern):
         angle_deg = self.params["STRIPE_ANGLE"]
 
         # Apply modulation if active
-        for key in ["STRIPE_SPEED", "STRIPE_WIDTH", "STRIPE_ANGLE"]:
+        for key in ("STRIPE_SPEED", "STRIPE_WIDTH", "STRIPE_ANGLE"):
             meta = self.param_meta.get(key, {})
-            if meta.get("modulatable") and meta.get("mod_active") and meta.get("mod_source") in (lfo_signals or {}):
-                mod_val = apply_modulation(self.params[key], meta, lfo_signals)
+            if meta.get("modulatable") and meta.get("mod_active"):
+                # 1) Which LFO or ENV signal drives this?
+                src = meta.get("mod_source")
+                # 2) Pull out that one float (default 0.0)
+                amt = (lfo_signals or {}).get(src, 0.0)
+                # 3) Compute the scaled parameter
+                mod_val = apply_modulation(self.params[key], meta, amt)
+
+                # 4) Assign it back to your local drawing vars
                 if key == "STRIPE_SPEED":
-                    speed = mod_val
+                    speed     = mod_val
                 elif key == "STRIPE_WIDTH":
-                    width = mod_val
+                    width     = mod_val
                 elif key == "STRIPE_ANGLE":
                     angle_deg = mod_val
 

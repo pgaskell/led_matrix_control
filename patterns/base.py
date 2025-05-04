@@ -10,24 +10,26 @@ class Pattern:
     def render(self, lfo_signals=None):
         return [(0, 0, 0, 0)] * (self.width * self.height)
 
-def apply_modulation(base, meta, signals):
-    source = meta.get("mod_source")
-    if not source or source not in signals:
-        return base
-    value = signals[source]
-
-    mode = meta.get("mod_mode", "add")
-    min_val = meta.get("min", 0.0)
-    max_val = meta.get("max", 1.0)
-    range_span = max_val - min_val
+def apply_modulation(base, meta, amount):
+    """
+    base   :: the un-modulated parameter value
+    meta   :: the PARAMS metadata dict for this parameter
+    amount :: a single float from your LFO or envelope in [-1..1] or [0..1]
+    returns :: a new, clamped parameter value
+    """
+    mode     = meta.get("mod_mode", "add")
+    minv     = meta.get("min", 0.0)
+    maxv     = meta.get("max", 1.0)
+    span     = maxv - minv
 
     if mode == "add":
-        mod_val = base + value * 0.5 * range_span
+        val = base + amount * span
     elif mode == "scale":
-        mod_val = base * (1 + value)
+        val = base * (1 + amount)
     elif mode == "replace":
-        mod_val = min_val + (value + 1) * 0.5 * range_span
+        val = minv + amount * span
     else:
-        mod_val = base
+        val = base
 
-    return max(min_val, min(mod_val, max_val))
+    # clamp to [minv, maxv]
+    return max(minv, min(val, maxv))
