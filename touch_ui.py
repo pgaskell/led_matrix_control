@@ -350,80 +350,153 @@ class ModCheckbox:
 class Dropdown:
     def __init__(self, name, options, default, x, y,
                  width=120, show_label=True, label_map=None,
-                 dropup=False):
-        self.name        = name
-        self.options     = options
-        self.selected    = default
-        self.x           = x
-        self.y           = y
-        self.width       = width
-        self.show_label  = show_label
-        self.label_map   = label_map or {}
-        self.dropup      = dropup
+                 dropup=False, max_visible=8):
+        self.name         = name
+        self.options      = options
+        self.selected     = default
+        self.x            = x
+        self.y            = y
+        self.width        = width
+        self.show_label   = show_label
+        self.label_map    = label_map or {}
+        self.dropup       = dropup
 
-        # main box
-        self.rect        = pygame.Rect(x, y, width, 25)
-        # height for each entry
-        self.entry_height = self.rect.height
-        self.open        = False
+        self.rect         = pygame.Rect(x, y, width, 25)
+        self.entry_h      = self.rect.height
+        self.open         = False
+
+        # scrolling state
+        self.max_visible  = max_visible
+        self.start_index  = 0
+
+        # up/down arrow buttons
+        self.arrow_up_rect   = pygame.Rect(
+            self.x, 
+            self.y - self.entry_h if self.dropup else self.y + self.entry_h * (self.max_visible+1),
+            self.width, self.entry_h
+        )
+        self.arrow_down_rect = pygame.Rect(
+            self.x,
+            self.y - self.entry_h*(self.max_visible+2) if self.dropup else self.y + self.entry_h * (self.max_visible+2),
+            self.width, self.entry_h
+        )
 
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN:
-            # toggle open/closed if you click the main rect
+            # toggle if main box clicked
             if self.rect.collidepoint(event.pos):
                 self.open = not self.open
                 return True
 
             if self.open:
-                # check each popped‐up (or down) entry
-                for i, opt in enumerate(self.options):
-                    # position above if dropup, below otherwise
-                    offset = -self.entry_height*(i+1) if self.dropup else self.entry_height*(i+1)
-                    entry_rect = pygame.Rect(
-                        self.x,
-                        self.y + offset,
-                        self.width,
-                        self.entry_height
-                    )
+                # wheel up/down
+                # new, clamped‐scroll logic
+                if event.button == 4 or event.button == 5:
+                    # wheel-up is button 4, wheel-down is button 5
+                    if event.button == 4:
+                        # scroll up
+                        self.start_index = max(0, self.start_index - 1)
+                    else:
+                        # scroll down
+                        max_start = max(0, len(self.options) - self.max_visible)
+                        self.start_index = min(max_start, self.start_index + 1)
+                    return True
+
+                # up arrow?
+                if self.arrow_up_rect.collidepoint(event.pos):
+                    if self.start_index > 0:
+                        self.start_index -= 1
+                    return True
+                # down arrow?
+                if self.arrow_down_rect.collidepoint(event.pos):
+                    if self.start_index + self.max_visible < len(self.options):
+                        self.start_index += 1
+                    return True
+
+                # clicking one of the visible entries
+                for idx in range(self.start_index,
+                                 min(len(self.options), self.start_index + self.max_visible)):
+                    i = idx - self.start_index
+                    offset = -self.entry_h*(i+1) if self.dropup else self.entry_h*(i+1)
+                    entry_rect = pygame.Rect(self.x,
+                                             self.y + offset,
+                                             self.width,
+                                             self.entry_h)
                     if entry_rect.collidepoint(event.pos):
-                        self.selected = opt
+                        self.selected = self.options[idx]
                         self.open = False
                         return True
 
-                # clicked somewhere else: close menu
+                # click elsewhere closes
                 self.open = False
                 return True
 
         return False
 
     def draw(self, screen, font):
-        # draw the main box
+        # main box
         pygame.draw.rect(screen, (100, 100, 100), self.rect)
-        display_text = str(self.label_map.get(self.selected, self.selected))
-        screen.blit(font.render(display_text, True, (255,255,255)),
+        txt = str(self.label_map.get(self.selected, self.selected))
+        if len(txt) > 14:
+             txt = txt[:11] + "..."
+        screen.blit(font.render(txt, True, (255, 255, 255)),
                     (self.x + 6, self.y + 4))
 
-        # optional label to left
         if self.show_label:
-            label_text = self.name.split("_")[-1] + ":"
-            label_surf = font.render(label_text, True, (160,160,160))
-            screen.blit(label_surf, (self.x - label_surf.get_width() - 6,
-                                     self.y + 4))
+            lbl = self.name.split("_")[-1] + ":"
+            surf = font.render(lbl, True, (160,160,160))
+            screen.blit(surf, (self.x - surf.get_width() - 6, self.y + 4))
 
-        # if open, draw the pop-up entries
-        if self.open:
-            for i, opt in enumerate(self.options):
-                offset = -self.entry_height*(i+1) if self.dropup else self.entry_height*(i+1)
-                option_rect = pygame.Rect(
-                    self.x,
-                    self.y + offset,
-                    self.width,
-                    self.entry_height
-                )
-                pygame.draw.rect(screen, (70,70,70), option_rect)
-                opt_label = str(self.label_map.get(opt, opt))
-                screen.blit(font.render(opt_label, True, (255,255,255)),
-                            (self.x + 6, option_rect.y + 4))
+        if not self.open:
+            return
+
+        # draw the visible entries
+        start = self.start_index
+        end   = min(len(self.options), start + self.max_visible)
+
+        for idx in range(start, end):
+            i = idx - start
+            offset = -self.entry_h*(i+1) if self.dropup else self.entry_h*(i+1)
+            option_rect = pygame.Rect(self.x,
+                                      self.y + offset,
+                                      self.width,
+                                      self.entry_h)
+            pygame.draw.rect(screen, (70,70,70), option_rect)
+            label = str(self.label_map.get(self.options[idx], self.options[idx]))
+            if len(label) > 14:
+                label = label[:11] + "..."
+            screen.blit(font.render(label, True, (255,255,255)),
+                        (self.x + 6, option_rect.y + 4))
+
+        # now always draw both arrows, but grey them if disabled
+        up_enabled   = (self.start_index > 0)
+        down_enabled = (self.start_index + self.max_visible < len(self.options))
+
+        # arrow background
+        bg_color = (120,120,120)
+        screen.fill(bg_color, self.arrow_up_rect)
+        screen.fill(bg_color, self.arrow_down_rect)
+
+        # arrow color: bright when enabled, dim when not
+        en_col   = (200,200,200)
+        dis_col  = (80,80,80)
+
+        up_col   = en_col if up_enabled   else dis_col
+        down_col = en_col if down_enabled else dis_col
+
+        # draw the “↑” and “↓”
+        up_txt   = font.render("↑", True, up_col)
+        down_txt = font.render("↓", True, down_col)
+
+        # center them in the arrow rects
+        ux = self.arrow_up_rect.x   + (self.width - up_txt.get_width())//2
+        uy = self.arrow_up_rect.y   + (self.entry_h - up_txt.get_height())//2
+        dx = self.arrow_down_rect.x + (self.width - down_txt.get_width())//2
+        dy = self.arrow_down_rect.y + (self.entry_h- down_txt.get_height())//2
+
+        screen.blit(up_txt,   (ux, uy))
+        screen.blit(down_txt, (dx, dy))
+
 
 
 class LFOControlPanel:
@@ -751,12 +824,14 @@ def launch_ui():
     button_font = pygame.font.SysFont("monospace", FONT_SIZE)
 
     # — Patch grid setup —
+    display_patch_mode = False
     PATCH_ROWS, PATCH_COLS = 8, 8
     TOTAL_SLOTS = PATCH_ROWS * PATCH_COLS
     patches = [None] * TOTAL_SLOTS
     patch_icons = [None] * TOTAL_SLOTS
     save_mode = False
     clear_mode = False
+
 
     # — MOD panels —
     lfo1_panel = LFOControlPanel("lfo1", SCREEN_WIDTH - 300, 70, LFO_CONFIG["lfo1"])
@@ -769,12 +844,13 @@ def launch_ui():
     pattern_names = sorted(patterns.keys())
     current_index = 0
     pattern_dropdown = Dropdown(
-        "PATTERN",
+        "Pattern",
         pattern_names,
         pattern_names[current_index],
         20, 10,
-        width=240,
-        show_label=False
+        width=180, show_label=False,
+        dropup=False,
+        max_visible=20
     )
 
     sprites, sprite_names = load_sprites("sprites")
@@ -792,15 +868,31 @@ def launch_ui():
 
     # — Fixed dropdowns (won’t be recreated on pattern change) —
     selected_colormap = params.get("COLORMAP", colormap_names[0])
-    colormap_dropdown = Dropdown("COLORMAP", colormap_names, selected_colormap, 280, 10, width=250, show_label=False)
-
+    colormap_dropdown = Dropdown(
+        "COLORMAP",
+        colormap_names,
+        selected_colormap,
+        220, 10,
+        width=180, show_label=False,
+        max_visible=20
+    )
     selected_sprite = params.get("SPRITE", "none")
-    sprite_dropdown  = Dropdown("SPRITE",  sprite_names,  selected_sprite,  550, 10, width=250, show_label=False)
-
+    sprite_dropdown = Dropdown(
+        "SPRITE",
+        sprite_names,
+        selected_sprite,
+        420, 10,
+        width=180, show_label=False,
+        max_visible=20
+    )
     # — UI button rectangles —
-    sim_button_rect  = pygame.Rect(SCREEN_WIDTH - 200, 10, 180, 30)
     BTN = 90
     SPACING = 10
+ 
+    toggle_rect = pygame.Rect(SCREEN_WIDTH - BTN*8 - SPACING*6, UI_HEIGHT - BTN - SPACING, BTN, BTN)
+
+    sim_button_rect  = pygame.Rect(SCREEN_WIDTH - 200, 10, 180, 25)
+
 
     save_button_rect  = pygame.Rect(SCREEN_WIDTH - BTN*2 - SPACING*3,
                                     UI_HEIGHT - BTN - SPACING,
@@ -960,7 +1052,9 @@ def launch_ui():
                     continue
                 if sprite_dropdown.handle_event(event):
                     continue
-           # Tap tempo
+                if toggle_rect.collidepoint(event.pos):
+                    display_patch_mode = not display_patch_mode
+                    continue 
                 if tap_button_rect.collidepoint(event.pos):
                     now = time.time()
                     tap_times.append(now)
@@ -1209,7 +1303,7 @@ def launch_ui():
             draw_simulator(screen, frame,
                            pattern.width, pattern.height,
                            sim_rect)
-
+    
 
 
         # Mode Buttons (Save-mode, Tap-tempo, Show/Hide) ————————
@@ -1242,19 +1336,75 @@ def launch_ui():
         screen.blit(button_font.render("Show/Hide", True, (255,255,255)),
                     (sim_button_rect.x+10, sim_button_rect.y+5))
 
-        # Patch Grid Slots ——————————————————————————————
-        for i, slot in enumerate(patch_rects):
-            # slot background
-            pygame.draw.rect(screen, (50,50,50), slot)
-            # thumbnail icon
-            icon = patch_icons[i]
-            if icon:
-                ir = icon.get_rect(center=slot.center)
-                screen.blit(icon, ir)
-            # slot border (red if saving, gray otherwise)
-            border_col = (200,80,80) if (save_mode or clear_mode) else (100,100,100)
-            pygame.draw.rect(screen, border_col, slot, 2)
+        if not display_patch_mode and not save_mode:
+            # Pattern-mode: show your normal simulator
+            sim_rect = pygame.Rect(265, 55,
+                                   440, 440)
+            draw_simulator(screen, frame,
+                           pattern.width, pattern.height,
+                           sim_rect)
+        else:
+            # Patch Grid Slots ——————————————————————————————
+            for i, slot in enumerate(patch_rects):
+                # slot background
+                pygame.draw.rect(screen, (50,50,50), slot)
+                # thumbnail icon
+                icon = patch_icons[i]
+                if icon:
+                    ir = icon.get_rect(center=slot.center)
+                    screen.blit(icon, ir)
+                # slot border (red if saving, gray otherwise)
+                border_col = (200,80,80) if (save_mode or clear_mode) else (100,100,100)
+                pygame.draw.rect(screen, border_col, slot, 2)
+        
+        # — Draw the Mode-Toggle button itself —
+        pygame.draw.rect(screen, (80,80,80), toggle_rect)
+        bw, bh = toggle_rect.width, toggle_rect.height
+        pw, ph = pattern.width, pattern.height
+        pixel_size = min(bw // pw, bh // ph)
+        # total icon size
+        icon_w = pixel_size * pw
+        icon_h = pixel_size * ph
 
+        # center it inside the button
+        off_x = toggle_rect.x + (bw - icon_w)//2
+        off_y = toggle_rect.y + (bh - icon_h)//2
+
+
+        if display_patch_mode:
+            # Pattern-mode: draw the full‐pattern thumbnail
+            for y in range(ph):
+                for x in range(pw):
+                    idx = y*pw + x
+                    r,g,b,_ = frame[idx]
+                    rect = pygame.Rect(
+                        off_x + x*pixel_size,
+                        off_y + y*pixel_size,
+                        pixel_size, pixel_size
+                    )
+                    pygame.draw.rect(screen, (r,g,b), rect)
+        else:
+            # Patch-mode: draw an 8×8 grid icon
+            rows, cols = PATCH_ROWS, PATCH_COLS  # 8,8
+            # reuse pixel_size if you like, or recompute a grid‐cell size
+            cell = min(bw // cols, bh // rows)
+            grid_w = cell * cols
+            grid_h = cell * rows
+            gx = toggle_rect.x + (bw - grid_w)//2
+            gy = toggle_rect.y + (bh - grid_h)//2
+
+            for i in range(rows*cols):
+                row, col = divmod(i, cols)
+                cell_r = pygame.Rect(
+                    gx + col*cell,
+                    gy + row*cell,
+                    cell, cell
+                )
+                # filled = slot has a patch?
+                colr = (200,80,80) if patches[i] else (50,50,50)
+                pygame.draw.rect(screen, colr, cell_r)
+                pygame.draw.rect(screen, (0,0,0), cell_r, 1)
+        
         # LFO Outputs & BPM —————————————————————————————
 
         # row 0: LFO1 (cyan)
