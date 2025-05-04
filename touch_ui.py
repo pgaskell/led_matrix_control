@@ -1,5 +1,6 @@
 
 import pygame
+import random
 import time
 import importlib
 import os
@@ -85,14 +86,18 @@ def restore_patch(index,
                   patterns,
                   lfo_panels,
                   env_panels,
+                  pattern_dropdown,
+                  colormap_dropdown,
+                  sprite_dropdown,
                   create_sliders):
     """
-    Load patch[index] from disk and:
+    Load patch[index] from disk and restore:
       1. Switch to the saved pattern
       2. Rebuild sliders/dropdowns/checkboxes
       3. Restore each param’s modulatable flags
       4. Restore LFO_CONFIG into lfo_panels
       5. Restore ENV_CONFIG into env_panels
+      6. Restore colormap & sprite dropdowns
     Returns: (new_index, pattern, sliders, dropdowns, mod_checkboxes)
     """
     patch = load_patch(index)
@@ -110,38 +115,54 @@ def restore_patch(index,
     # 3) Modulation flags
     for name, m in patch["modulation"].items():
         meta = param_specs.get(name)
-        if not meta: continue
+        if not meta: 
+            continue
         meta["mod_active"] = m["mod_active"]
         meta["mod_source"] = m["mod_source"]
         meta["mod_mode"]   = m["mod_mode"]
-        # update the matching checkbox
+        # sync checkbox
         for cb in mod_checkboxes:
             if cb.param_name == name:
                 cb.active = (cb.source_id == m["mod_source"])
 
     # 4) LFOs
-    LFO_CONFIG.update(patch["lfo_config"])
-    for lname, panel in zip(("lfo1","lfo2"), lfo_panels):
-        cfg = LFO_CONFIG[lname]
+    import lfo
+    lfo.LFO_CONFIG.update(patch["lfo_config"])
+    for (lname, panel) in zip(("lfo1","lfo2"), lfo_panels):
+        cfg = lfo.LFO_CONFIG[lname]
         panel.config.update(cfg)
         panel.waveform_dropdown.selected = cfg["waveform"]
         panel.depth_slider.value        = cfg["depth"]
         panel.offset_slider.value       = cfg.get("offset", 0.0)
+        panel.config["offset"]          = cfg.get("offset", 0.0)
         panel.sync_mode                 = cfg["sync_mode"]
-        # …and their mhz/beat dropdowns…
+        if cfg["sync_mode"] == "free":
+            panel.mhz_dropdown.selected  = str(int(cfg["hz"]*1000))
+        else:
+            panel.beat_dropdown.selected = panel._beats_label(cfg["period_beats"])
 
     # 5) Envelopes
-    ENV_CONFIG.update(patch["env_config"])
-    for pname, panel in zip(("envl","envh"), env_panels):
-        cfg = ENV_CONFIG[pname]
-        panel.th_slider.value    = cfg["threshold_db"]
-        panel.gn_slider.value    = cfg["gain_db"]
-        panel.atk_dd.selected    = cfg["attack"]
-        panel.rel_dd.selected    = cfg["release"]
-        panel.mode_dd.selected   = cfg["mode"]
+    import audio_env
+    audio_env.ENV_CONFIG.update(patch["env_config"])
+    for (ename, panel) in zip(("envl","envh"), env_panels):
+        cfg = audio_env.ENV_CONFIG[ename]
+        panel.th_slider.value   = cfg["threshold_db"]
+        panel.gn_slider.value   = cfg["gain_db"]
+        panel.atk_dd.selected   = panel.attack_map[cfg["attack"]]
+        panel.rel_dd.selected   = panel.release_map[cfg["release"]]
+        panel.mode_dd.selected  = cfg["mode"]
         panel.config.update(cfg)
 
-    # 6) Return everything needed back into launch_ui
+    # 6) Colormap & sprite
+    pattern_dropdown.selected    = patch["pattern"]
+    if "COLORMAP" in params:
+        colormap_dropdown.selected = params["COLORMAP"]
+    if "SPRITE" in params:
+        sprite_dropdown.selected   = params["SPRITE"]
+
+    # commit into the live pattern
+    pattern.update_params(params)
+
     return new_index, pattern, sliders, dropdowns, mod_checkboxes
 
 def delete_patch(index):
@@ -327,61 +348,82 @@ class ModCheckbox:
         return False
 
 class Dropdown:
-    def __init__(self, name, options, default, x, y, width=120, show_label=True, label_map=None):
-        self.name = name
-        self.options = options
-        self.selected = default
-        self.x = x
-        self.y = y
-        self.width = width
-        self.show_label = show_label
-        self.label_map = label_map or {}
-        self.open = False
-        self.height = 30
-        self.rect = pygame.Rect(x, y, width, self.height)
+    def __init__(self, name, options, default, x, y,
+                 width=120, show_label=True, label_map=None,
+                 dropup=False):
+        self.name        = name
+        self.options     = options
+        self.selected    = default
+        self.x           = x
+        self.y           = y
+        self.width       = width
+        self.show_label  = show_label
+        self.label_map   = label_map or {}
+        self.dropup      = dropup
+
+        # main box
+        self.rect        = pygame.Rect(x, y, width, 25)
+        # height for each entry
+        self.entry_height = self.rect.height
+        self.open        = False
 
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN:
+            # toggle open/closed if you click the main rect
             if self.rect.collidepoint(event.pos):
                 self.open = not self.open
                 return True
-            
+
             if self.open:
-                entry_h = self.rect.height
+                # check each popped‐up (or down) entry
                 for i, opt in enumerate(self.options):
+                    # position above if dropup, below otherwise
+                    offset = -self.entry_height*(i+1) if self.dropup else self.entry_height*(i+1)
                     entry_rect = pygame.Rect(
                         self.x,
-                        self.y + entry_h * (i + 1),
+                        self.y + offset,
                         self.width,
-                        entry_h
+                        self.entry_height
                     )
                     if entry_rect.collidepoint(event.pos):
                         self.selected = opt
                         self.open = False
                         return True
-            
+
+                # clicked somewhere else: close menu
                 self.open = False
                 return True
-            
-            return False
+
+        return False
 
     def draw(self, screen, font):
+        # draw the main box
         pygame.draw.rect(screen, (100, 100, 100), self.rect)
-        display_text = self.label_map.get(self.selected, self.selected)
-        display_text = str(display_text)
-        screen.blit(font.render(display_text, True, (255, 255, 255)), (self.x + 6, self.y + 4))
+        display_text = str(self.label_map.get(self.selected, self.selected))
+        screen.blit(font.render(display_text, True, (255,255,255)),
+                    (self.x + 6, self.y + 4))
 
+        # optional label to left
         if self.show_label:
             label_text = self.name.split("_")[-1] + ":"
-            label_surface = font.render(label_text, True, (160, 160, 160))
-            screen.blit(label_surface, (self.x - label_surface.get_width() - 6, self.y + 4))
+            label_surf = font.render(label_text, True, (160,160,160))
+            screen.blit(label_surf, (self.x - label_surf.get_width() - 6,
+                                     self.y + 4))
 
+        # if open, draw the pop-up entries
         if self.open:
             for i, opt in enumerate(self.options):
-                option_rect = pygame.Rect(self.x, self.y + self.height * (i + 1), self.width, self.height)
-                pygame.draw.rect(screen, (70, 70, 70), option_rect)
-                opt_label = self.label_map.get(opt, opt)
-                screen.blit(font.render(opt_label, True, (255, 255, 255)), (self.x + 6, option_rect.y + 4))
+                offset = -self.entry_height*(i+1) if self.dropup else self.entry_height*(i+1)
+                option_rect = pygame.Rect(
+                    self.x,
+                    self.y + offset,
+                    self.width,
+                    self.entry_height
+                )
+                pygame.draw.rect(screen, (70,70,70), option_rect)
+                opt_label = str(self.label_map.get(opt, opt))
+                screen.blit(font.render(opt_label, True, (255,255,255)),
+                            (self.x + 6, option_rect.y + 4))
 
 
 class LFOControlPanel:
@@ -483,6 +525,19 @@ class EnvelopeControlPanel:
         self.x      = x
         self.y      = y
         self.config = config
+
+        self.attack_map = {
+            0.001: "1ms",
+            0.005: "5ms",
+            0.010: "10ms",
+            0.020: "20ms"
+        }
+        self.release_map = {
+            0.025: "25ms",
+            0.050: "50ms",
+            0.100: "100ms",
+            0.150: "150ms"
+        }
 
         # — Mapping for ms dropdowns → seconds —
         self._atk_map = {"1ms":0.001,  "5ms":0.005,  "10ms":0.010, "20ms":0.020}
@@ -691,6 +746,7 @@ def launch_ui():
     show_simulator = False
     screen = pygame.display.set_mode((SCREEN_WIDTH, UI_HEIGHT), pygame.RESIZABLE)
     pygame.display.set_caption("LED Wall Touch UI")
+    bold_bpm_font = pygame.font.SysFont("monospace", FONT_SIZE, bold=True)
     font = pygame.font.SysFont("monospace", FONT_SIZE)
     button_font = pygame.font.SysFont("monospace", FONT_SIZE)
 
@@ -743,10 +799,49 @@ def launch_ui():
 
     # — UI button rectangles —
     sim_button_rect  = pygame.Rect(SCREEN_WIDTH - 200, 10, 180, 30)
-    save_button_rect = pygame.Rect(SCREEN_WIDTH - 420, UI_HEIGHT - 90, 180, 45)
-    clear_button_rect = pygame.Rect(SCREEN_WIDTH - 620, UI_HEIGHT - 90, 180, 45)
-    tap_button_rect  = pygame.Rect(SCREEN_WIDTH - 220, UI_HEIGHT - 90, 180, 45)
+    BTN = 90
+    SPACING = 10
+
+    save_button_rect  = pygame.Rect(SCREEN_WIDTH - BTN*2 - SPACING*3,
+                                    UI_HEIGHT - BTN - SPACING,
+                                    BTN, BTN)
+    clear_button_rect = pygame.Rect(SCREEN_WIDTH - BTN*3 - SPACING*4,
+                                    UI_HEIGHT - BTN - SPACING,
+                                    BTN, BTN)
+    tap_button_rect   = pygame.Rect(SCREEN_WIDTH - BTN - SPACING*2,
+                                    UI_HEIGHT - BTN - SPACING,
+                                    BTN, BTN)
     tap_times = []
+
+        # –– Random-cycle controls ––
+    random_cycle = False
+    cycle_beats = 8
+    last_cycle_time = time.time()
+
+    # how many beats between random‐patch cycles?
+    cycle_beats = 8
+
+# dropdown right to left: place it just to the left of your clear button
+    SP = 10  # same SPACING you’re using
+    DD_W = 100
+
+    cycle_dropdown = Dropdown(
+        "Beats",
+        ["2","4","8","16","32"],
+        str(cycle_beats),
+        clear_button_rect.x - 70,
+        clear_button_rect.y,
+        width=60,
+        show_label=False,
+        dropup=True
+    )
+
+    # a square toggle to the left of the slider
+    random_button_rect = pygame.Rect(
+        clear_button_rect.x - 170,
+        save_button_rect.y,
+        BTN, BTN
+    )
 
     GRID_X = 270
     GRID_Y = 60
@@ -785,6 +880,36 @@ def launch_ui():
     while running:
         screen.fill(BG_COLOR)
 
+    # Random‐cycle check
+        if random_cycle:
+            now = time.time()
+            # how many beats since last cycle?
+            beats_elapsed = (now - last_cycle_time) * (BPM / 60.0)
+            if beats_elapsed >= cycle_beats:
+                last_cycle_time = now
+
+                # pick one of your saved slots at random
+                saved = [i for i, has in enumerate(patches) if has]
+                if saved:
+                    slot = random.choice(saved)
+
+                    # call your shared restore function:
+                    (current_index,
+                    pattern,
+                    sliders,
+                    dropdowns,
+                    mod_checkboxes) = restore_patch(
+                        slot,
+                        pattern_names,
+                        patterns,
+                        [lfo1_panel, lfo2_panel],
+                        [envl_panel, envh_panel],
+                        pattern_dropdown,
+                        colormap_dropdown,
+                        sprite_dropdown,
+                        create_sliders
+                    )
+
         # — Event loop —
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -814,11 +939,17 @@ def launch_ui():
                         # No source if you turned it off
                         meta["mod_source"] = None
             
+
+
             lfo1_panel.handle_event(event)
             lfo2_panel.handle_event(event)
             envl_panel.handle_event(event)
             envh_panel.handle_event(event)
 
+                # N-Beats slider
+            if cycle_dropdown.handle_event(event):
+                cycle_beats = int(cycle_dropdown.selected)
+                continue
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 # First, let the top dropdowns handle it
@@ -845,6 +976,13 @@ def launch_ui():
                 if sim_button_rect.collidepoint(event.pos):
                     show_simulator = not show_simulator
                     continue
+                
+                if random_button_rect.collidepoint(event.pos):
+                    random_cycle = not random_cycle
+                    last_cycle_time = time.time()
+                    continue
+
+
 
                 # Toggle save mode
                 if save_button_rect.collidepoint(event.pos):
@@ -1041,7 +1179,7 @@ def launch_ui():
         mod_signals = evaluate_lfos()
         mod_signals.update(evaluate_env())
         #print("DEBUG vals:", {k: round(v,3) for k,v in mod_signals.items()})
-        
+   
         frame = pattern.render(lfo_signals=mod_signals)
 
         # — Sprite overlay (static or animated GIF) —
@@ -1078,17 +1216,26 @@ def launch_ui():
         pygame.draw.rect(screen, (200,80,80) if save_mode else (80,200,80),
                          save_button_rect)
         screen.blit(font.render(
-            "SAVE" if not save_mode else "SELECT SLOT", True, (255,255,255)),
+            "SAVE" if not save_mode else "SELECT", True, (255,255,255)),
             (save_button_rect.x+10, save_button_rect.y+10))
 
         pygame.draw.rect(screen, (200,80,80) if clear_mode else (80,80,200),
                          clear_button_rect)
         screen.blit(font.render(
-            "CLEAR" if not clear_mode else "SELECT SLOT", True, (255,255,255)),
+            "CLEAR" if not clear_mode else "SELECT", True, (255,255,255)),
             (clear_button_rect.x+10, clear_button_rect.y+10))
 
+        # Random-cycle toggle (red when ON, gray when OFF)
+        col = (200,80,80) if random_cycle else (80,80,80)
+        pygame.draw.rect(screen, col, random_button_rect)
+        screen.blit(font.render("RND", True, (255,255,255)),
+                    (random_button_rect.x+6, random_button_rect.y+8))
+
+        
+
+
         pygame.draw.rect(screen, (90,90,90), tap_button_rect)
-        screen.blit(font.render("Tap Tempo", True, (255,255,255)),
+        screen.blit(font.render("TAP", True, (255,255,255)),
                     (tap_button_rect.x+20, tap_button_rect.y+10))
 
         pygame.draw.rect(screen, (90,90,90), sim_button_rect)
@@ -1124,8 +1271,11 @@ def launch_ui():
                         "ENVH", "envh", (255,150, 50), 3)
         # BPM text
         import lfo
-        screen.blit(font.render(f"{int(lfo.BPM)} BPM", True, (200,255,200)),
-                    (tap_button_rect.x+20, tap_button_rect.y-20))
+        bpm_text = f"{int(lfo.BPM)} BPM"
+        screen.blit(
+            bold_bpm_font.render(bpm_text, True, (127,255,0)),
+            (tap_button_rect.x+2, tap_button_rect.y - FONT_SIZE + 80)
+)
 
         # LFO + RMS Control Panels, Sliders & Mod-Checkboxes —————————
         for s in sliders:
@@ -1148,6 +1298,8 @@ def launch_ui():
                 d.draw(screen, font)
         
         # Fixed Dropdowns (pattern / colormap / sprite) ———————
+        # N-Beats slider
+        cycle_dropdown.draw(screen, font)
         pattern_dropdown.draw(screen, font)
         colormap_dropdown.draw(screen, font)
         sprite_dropdown.draw(screen, font)
