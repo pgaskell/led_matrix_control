@@ -5,10 +5,15 @@ import time
 import importlib
 import os
 import json
+from ws2814 import WS2814
 from os.path import join, isfile
 from PIL import Image
 from lfo import evaluate_lfos, LFO_CONFIG, BPM
 from audio_env import evaluate_env, ENV_CONFIG
+
+
+NUM_LEDS = 100           # total LEDs wired up
+led_matrix = WS2814('/dev/spidev0.0', NUM_LEDS, 800) 
 
 # --- Config ---
 SCREEN_WIDTH = 1024
@@ -255,6 +260,15 @@ def draw_mod_indicator(screen, font, signals, label, key, color, idx):
     # label
     #screen.blit(font.render(label, True, (255,255,255)),
     #            (bar_x + bar_w + 10, bar_y))
+
+
+def rgb_to_rgbw(r, g, b):
+    # w is the “shared” white in RGB
+    w = min(r, g, b)
+    # subtract it so the RGB channels represent only the
+    # “pure” color left over
+    return r , g , b , int(w/2)
+
 
 class Slider:
     def __init__(self, name, default, min_val, max_val, step, x, y, height, valid_values=None):
@@ -1304,7 +1318,13 @@ def launch_ui():
                            pattern.width, pattern.height,
                            sim_rect)
     
-
+        # Output to the LED Matrix!
+        for i in range(min(NUM_LEDS, len(frame))):
+            r, g, b, _ = frame[i]
+            r4, g4, b4, w = rgb_to_rgbw(r, g, b)
+            # now send r4, g4, b4 plus the white channel w:
+            led_matrix.set_led_color(i, r4, g4, b4, w)
+        led_matrix.update_strip()
 
         # Mode Buttons (Save-mode, Tap-tempo, Show/Hide) ————————
         pygame.draw.rect(screen, (200,80,80) if save_mode else (80,200,80),
