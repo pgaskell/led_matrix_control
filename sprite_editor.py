@@ -1,6 +1,56 @@
 import pygame, sys, os
 import colorsys
 from PIL import Image
+import spidev
+from ws2814 import WS2814
+
+try:
+    from ws2814 import WS2814
+    # we assume a 24×24 matrix wired in row‐major order
+    MATRIX_SIZE = 24
+    MATRIX_LEDS = MATRIX_SIZE * MATRIX_SIZE
+    led = WS2814('/dev/spidev0.0', MATRIX_LEDS, 800)
+    # for y in range(MATRIX_SIZE):
+    #         for x in range(MATRIX_SIZE):
+    #             led.set_led_color(y*MATRIX_SIZE + x, 0,0,0,0)
+    # led.update_strip()
+    use_led = True
+    print("→ Sprite editor: LED matrix enabled (24×24).")
+except Exception as e:
+    use_led = False
+    print("→ Sprite editor: LED matrix disabled:", e)
+
+def rgb_to_rgbw(r, g, b):
+    """Split out white channel as min(R,G,B)."""
+    w = min(r, g, b)
+    return (r - w, g - w, b - w, w)
+
+def xy_to_index(x, y, width=24):
+    # even rows run left→right, odd rows right→left
+    if (y & 1) == 0:
+        return y * width + x
+    else:
+        return y * width + (width - 1 - x)
+
+def rgb_to_rgbw_hsv(r, g, b):
+    # normalize
+    rn, gn, bn = r/255.0, g/255.0, b/255.0
+    h, s, v    = colorsys.rgb_to_hsv(rn, gn, bn)
+
+    # split into white vs. color
+    w_frac = (1.0 - s) * v
+    c_frac = s * v
+
+    # rebuild a pure‐hue color at full saturation
+    pr, pg, pb = colorsys.hsv_to_rgb(h, 1.0, 1.0)
+
+    # scale back down
+    r4 = int(pr * c_frac * 255)
+    g4 = int(pg * c_frac * 255)
+    b4 = int(pb * c_frac * 255)
+    w4 = int(w_frac * 255)
+
+    return (r4, g4, b4, w4)
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────
 SPRITE_DIR = "sprites"
@@ -16,19 +66,42 @@ hue_steps   = [h / 360.0 for h in hue_degrees]
 # 2) Brightness levels for the top 7 rows (1.0 down to ~0.1429)
 hue_brightness = [1.0 - i/7 for i in range(7)]  # [1.0, 0.857…, …, 0.1429]
 
+import colorsys
+
+# ─── PALETTE BUILDING ────────────────────────────────────────────────────────
+
 PALETTE = []
 
-# 3) Build the 7 hue‐rows
-for bri in hue_brightness:
+# 1) Eight “nice” hues (in degrees)
+hue_degrees = [  0,  30,  60, 120, 180, 240, 300, 330 ]
+hue_steps   = [h/360.0 for h in hue_degrees]
+
+# 2) Brightness levels for the 9 color‑rows (row 0 = almost white, row 8 = almost black)
+#    We'll go from 1.0 down to 0.1 in nine equal steps.
+brightness_levels = [0.6 - (i/5) for i in range(3)]  # [1.0, 0.8875, …, 0.1]
+sat_levels = [0.1 + (i/5) for i in range(4)]
+# Build the 9 color‑rows
+for sat in sat_levels:
+    for hue in hue_steps:
+        r, g, b = colorsys.hsv_to_rgb(hue, sat, 1.0)
+        PALETTE.append((int(r*255), int(g*255), int(b*255)))
+
+for hue in hue_steps:
+    r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
+    PALETTE.append((int(r*255), int(g*255), int(b*255)))
+
+for bri in brightness_levels:
     for hue in hue_steps:
         r, g, b = colorsys.hsv_to_rgb(hue, 1.0, bri)
         PALETTE.append((int(r*255), int(g*255), int(b*255)))
 
-# 4) Build the bottom greyscale row (left→right from black→white)
+# 3) Bottom grayscale row (row 9): left→right from black→white
 for i in range(8):
     v = i / 7
     c = int(v*255)
     PALETTE.append((c, c, c))
+
+# Now PALETTE has 9*8 + 8 = 80 entries, arranged as 10 rows of 8 columns.
 
 MARGIN     = 20
 SIDEBAR_W  = 200
@@ -186,22 +259,25 @@ def main():
     input_active  = False
 
     running = True
+    painting = False
     while running:
+        
         for ev in pygame.event.get():
             if ev.type == pygame.QUIT:
                 running = False
 
-            elif ev.type == pygame.VIDEORESIZE:
-                    pixel_size, grid_px, sidebar_x, win_w, win_h = layout(grid_size)
-                    screen = pygame.display.set_mode((win_w, win_h), pygame.RESIZABLE)
-
-            elif ev.type == pygame.MOUSEBUTTONDOWN or (ev.type == pygame.MOUSEMOTION and ev.buttons[0]):
-                mx, my = ev.pos
-
-                # 1) Paint or erase on the grid
-                gx = (mx - MARGIN) // pixel_size
-                gy = (my - MARGIN) // pixel_size
-                paint_cell(frames, cur_frame, gx, gy, grid_size, cur_tool, cur_color)
+            elif ev.type == pygame.MOUSEBUTTONDOWN:
+                mx,my = ev.pos
+                # 1) Did we click _inside_ the grid?
+                grid_rect = pygame.Rect(MARGIN, MARGIN,
+                                        grid_size*pixel_size,
+                                        grid_size*pixel_size)
+                if grid_rect.collidepoint(mx,my):
+                    painting = True
+                    paint_cell(frames, cur_frame,
+                            (mx - MARGIN)//pixel_size,
+                            (my - MARGIN)//pixel_size,
+                            grid_size, cur_tool, cur_color)
 
                 # 2) Tool buttons (Pencil, Toggle Size, Eraser, Clear)
                 if tool_buttons[0].hit(ev.pos):
@@ -252,6 +328,18 @@ def main():
                     input_active = True
                 else:
                     input_active = False
+
+            elif ev.type == pygame.MOUSEBUTTONUP:
+                    painting = False
+
+            elif ev.type == pygame.MOUSEMOTION:
+                if painting:
+                    mx,my = ev.pos
+                    if grid_rect.collidepoint(mx,my):
+                        paint_cell(frames, cur_frame,
+                                (mx - MARGIN)//pixel_size,
+                                (my - MARGIN)//pixel_size,
+                                grid_size, cur_tool, cur_color)
 
             elif ev.type == pygame.KEYDOWN and input_active:
                 if ev.key == pygame.K_BACKSPACE:
@@ -312,10 +400,33 @@ def main():
         info = font.render(f"Frame {cur_frame+1}/{len(frames)}", True, (255,255,255))
         screen.blit(info, (btn_gif.rect.right+20, btn_gif.rect.y+5))
 
+        if use_led and grid_size == MATRIX_SIZE:
+            surf = frames[cur_frame]
+            # row‐major mapping: y=0..23, x=0..23
+            # this is actually not correct.
+            for y in range(MATRIX_SIZE):
+                for x in range(MATRIX_SIZE):
+                    r, g, b, a = surf.get_at((x, y))
+                    # skip fully transparent pixels (optional)
+                    if a == 0:
+                        # you could set LED black or leave previous
+                        led.set_led_color(y*MATRIX_SIZE + x, 0, 0, 0, 0)
+                    else:
+                        # simple RGB→RGBW: all white = min(r,g,b)
+                        r, g, b, w = rgb_to_rgbw_hsv(r, g, b)
+                        # optionally compensate for warm white here…
+                        led.set_led_color(y*MATRIX_SIZE + x, r, g, b, w)
+            led.update_strip()
+
         pygame.display.flip()
         clock.tick(FPS)
 
+
     pygame.quit()
+    for y in range(MATRIX_SIZE):
+        for x in range(MATRIX_SIZE):
+            led.set_led_color(y*MATRIX_SIZE + x, 0,0,0,0)
+    led.update_strip()
     sys.exit()
 
 if __name__ == "__main__":

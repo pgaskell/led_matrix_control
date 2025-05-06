@@ -5,6 +5,7 @@ import time
 import importlib
 import os
 import json
+import colorsys
 from ws2814 import WS2814
 from os.path import join, isfile
 from PIL import Image
@@ -12,7 +13,7 @@ from lfo import evaluate_lfos, LFO_CONFIG, BPM
 from audio_env import evaluate_env, ENV_CONFIG
 
 
-NUM_LEDS = 100           # total LEDs wired up
+NUM_LEDS = 500           # total LEDs wired up
 led_matrix = WS2814('/dev/spidev0.0', NUM_LEDS, 800) 
 
 # --- Config ---
@@ -261,14 +262,51 @@ def draw_mod_indicator(screen, font, signals, label, key, color, idx):
     #screen.blit(font.render(label, True, (255,255,255)),
     #            (bar_x + bar_w + 10, bar_y))
 
-
-def rgb_to_rgbw(r, g, b):
-    # w is the “shared” white in RGB
+def rgb_to_rgbw_min(r, g, b):
     w = min(r, g, b)
-    # subtract it so the RGB channels represent only the
-    # “pure” color left over
+    return r - w, g - w, b - w, w
+
+def rgb_to_rgbw_extra(r, g, b):
+    w = min(r, g, b)
+    # don't subtract, just boost with white 
     return r , g , b , int(w/2)
 
+def rgb_to_rgbw_luma(r, g, b):
+    # Rec.709 luma formula
+    w0 = 0.2126*r + 0.7152*g + 0.0722*b  
+    w  = int(min(w0, r, g, b))
+    return r - w, g - w, b - w, w
+
+def rgb_to_rgbw_hsv(r, g, b):
+    # normalize
+    rn, gn, bn = r/255.0, g/255.0, b/255.0
+    h, s, v    = colorsys.rgb_to_hsv(rn, gn, bn)
+
+    # split into white vs. color
+    w_frac = (1.0 - s) * v
+    c_frac = s * v
+
+    # rebuild a pure‐hue color at full saturation
+    pr, pg, pb = colorsys.hsv_to_rgb(h, 1.0, 1.0)
+
+    # scale back down
+    r4 = int(pr * c_frac * 255)
+    g4 = int(pg * c_frac * 255)
+    b4 = int(pb * c_frac * 255)
+    w4 = int(w_frac * 255)
+
+    return (r4, g4, b4, w4)
+
+def compensate_warm_white(r, g, b):
+    """
+    Simple tint‑correction for warm‑white LEDs:
+      • slightly reduce red and green,
+      • boost blue to pull back toward neutral.
+    """
+    rc = int(r * 0.92)
+    gc = int(g * 0.96)
+    bc = int(b * 1.10)
+    return min(rc, 255), min(gc, 255), min(bc, 255)
 
 class Slider:
     def __init__(self, name, default, min_val, max_val, step, x, y, height, valid_values=None):
@@ -1321,7 +1359,8 @@ def launch_ui():
         # Output to the LED Matrix!
         for i in range(min(NUM_LEDS, len(frame))):
             r, g, b, _ = frame[i]
-            r4, g4, b4, w = rgb_to_rgbw(r, g, b)
+            r, g, b = compensate_warm_white(r, g, b)
+            r4, g4, b4, w = rgb_to_rgbw_luma(r, g, b)
             # now send r4, g4, b4 plus the white channel w:
             led_matrix.set_led_color(i, r4, g4, b4, w)
         led_matrix.update_strip()
@@ -1479,6 +1518,9 @@ def launch_ui():
         pygame.display.flip()
         clock.tick(30)
 
+    for i in range(min(NUM_LEDS, len(frame))):
+        led_matrix.set_led_color(i, 0, 0, 0, 0)
+    led_matrix.update_strip()
     pygame.quit()
 
 

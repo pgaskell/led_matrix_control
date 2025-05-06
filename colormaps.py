@@ -80,6 +80,17 @@ def _gen_vu_lut(n):
         lut.append((r, g, b))
     return lut
 
+PASTEL_LUT = [
+    (255, 179, 186),  # pastel pink
+    (255, 223, 186),  # pastel peach
+    (255, 255, 186),  # pastel yellow
+    (186, 255, 201),  # pastel mint
+    (186, 225, 255),  # pastel sky blue
+    (219, 186, 255),  # pastel lavender
+    (255, 186, 227),  # pastel rose
+    (224, 224, 224),  # pastel gray
+]
+
 
 COLORMAPS = {
     "jet": make_colormap_from_anchors([
@@ -157,6 +168,17 @@ COLORMAPS = {
         (1.0, (0, 0, 255)),
     ]),
 
+    "blue_white": make_colormap_from_anchors([
+        (0.0, (0, 0, 32)),
+        (1.0, (255, 255, 255)),
+    ]),
+
+    "magenta_white": make_colormap_from_anchors([
+        (0.0, (64, 0, 64)),
+        (1.0, (255, 255, 255)),
+    ]),
+
+
     "lava_art": make_colormap_from_anchors([
         (0.0, (0.0, 0.0, 0.0)),    # Black
         (0.2, (0.05, 1.0, 0.1)),   # Greenish
@@ -167,6 +189,8 @@ COLORMAPS = {
     ], easing="ease_out"),
 
     "hsv_full": hsv_gradient(),
+
+    "pastels": PASTEL_LUT,
 
     "rainbow": hsv_gradient(),
 
