@@ -211,7 +211,8 @@ def main():
     # — initial canvas size —
     grid_size  = CANVAS_SIZES[0]
     pixel_size, grid_px, sidebar_x, win_w, win_h = layout(grid_size)
-
+    
+    frame_update = False # start true so we get an initial update 
     def make_frame():
         s = pygame.Surface((grid_size, grid_size), pygame.SRCALPHA)
         s.fill((0,0,0,0))
@@ -274,10 +275,21 @@ def main():
                                         grid_size*pixel_size)
                 if grid_rect.collidepoint(mx,my):
                     painting = True
-                    paint_cell(frames, cur_frame,
-                            (mx - MARGIN)//pixel_size,
-                            (my - MARGIN)//pixel_size,
-                            grid_size, cur_tool, cur_color)
+                    x = (mx - MARGIN)//pixel_size
+                    y = (my - MARGIN)//pixel_size
+                    paint_cell(frames, cur_frame, x, y, grid_size, cur_tool, cur_color)
+                    #TODO: update LEDs live here
+                    if use_led and grid_size == MATRIX_SIZE:
+                        r, g, b, a = surf.get_at((x,y))
+                        if a == 0:
+                            # you could set LED black or leave previous
+                            led.set_led_color(y*MATRIX_SIZE + x, 0, 0, 0, 0)
+                        else:
+                            # simple RGB→RGBW: all white = min(r,g,b)
+                            r, g, b, w = rgb_to_rgbw_hsv(r, g, b)
+                            # optionally compensate for warm white here…
+                            led.set_led_color(y*MATRIX_SIZE + x, r, g, b, w)
+                    led.update_strip()
 
                 # 2) Tool buttons (Pencil, Toggle Size, Eraser, Clear)
                 if tool_buttons[0].hit(ev.pos):
@@ -304,15 +316,18 @@ def main():
                 if btn_prev.hit(ev.pos):
                     if cur_frame > 0:
                         cur_frame -= 1
+                    frame_update = True
 
                 elif btn_copy.hit(ev.pos):
                     if cur_frame > 0:
                         frames[cur_frame].blit(frames[cur_frame-1], (0, 0))
+                    frame_update = True
 
                 elif btn_next.hit(ev.pos):
                     if cur_frame == len(frames) - 1:
                         frames.append(make_frame())
                     cur_frame += 1
+                    frame_update = True
 
                 elif btn_png.hit(ev.pos):
                     # build full‐res surface and save
@@ -331,15 +346,26 @@ def main():
 
             elif ev.type == pygame.MOUSEBUTTONUP:
                     painting = False
+                    frame_update = True
 
             elif ev.type == pygame.MOUSEMOTION:
                 if painting:
                     mx,my = ev.pos
+                    x = (mx - MARGIN)//pixel_size
+                    y = (my - MARGIN)//pixel_size
                     if grid_rect.collidepoint(mx,my):
-                        paint_cell(frames, cur_frame,
-                                (mx - MARGIN)//pixel_size,
-                                (my - MARGIN)//pixel_size,
-                                grid_size, cur_tool, cur_color)
+                        paint_cell(frames, cur_frame, x, y, grid_size, cur_tool, cur_color)
+                    if use_led and grid_size == MATRIX_SIZE:
+                        r, g, b, a = surf.get_at((x,y))
+                        if a == 0:
+                            # you could set LED black or leave previous
+                            led.set_led_color(y*MATRIX_SIZE + x, 0, 0, 0, 0)
+                        else:
+                            # simple RGB→RGBW: all white = min(r,g,b)
+                            r, g, b, w = rgb_to_rgbw_hsv(r, g, b)
+                            # optionally compensate for warm white here…
+                            led.set_led_color(y*MATRIX_SIZE + x, r, g, b, w)
+                        led.update_strip()
 
             elif ev.type == pygame.KEYDOWN and input_active:
                 if ev.key == pygame.K_BACKSPACE:
@@ -400,7 +426,7 @@ def main():
         info = font.render(f"Frame {cur_frame+1}/{len(frames)}", True, (255,255,255))
         screen.blit(info, (btn_gif.rect.right+20, btn_gif.rect.y+5))
 
-        if use_led and grid_size == MATRIX_SIZE:
+        if use_led and grid_size == MATRIX_SIZE and frame_update:
             surf = frames[cur_frame]
             # row‐major mapping: y=0..23, x=0..23
             # this is actually not correct.
@@ -417,6 +443,7 @@ def main():
                         # optionally compensate for warm white here…
                         led.set_led_color(y*MATRIX_SIZE + x, r, g, b, w)
             led.update_strip()
+            frame_update = False
 
         pygame.display.flip()
         clock.tick(FPS)
