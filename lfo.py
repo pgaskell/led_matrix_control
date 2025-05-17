@@ -49,32 +49,37 @@ def _waveform(phase, shape):
 
 
 def evaluate_lfos():
-    """Returns dict: { 'lfo1': value, 'lfo2': value }"""
-    now = _get_time()
-    lfo_signals = {}
+    """Returns dict: {'lfo1':value,'lfo2':value} with value in [-1..1]."""
+    now     = _get_time()
+    signals = {}
+    for name, cfg in LFO_CONFIG.items():
+        depth     = cfg.get("depth", 1.0)
+        offset    = cfg.get("offset", 0.0)
+        shape     = cfg.get("waveform", "sine")
+        phase_off = cfg.get("phase", 0.0)
 
-    for key, config in LFO_CONFIG.items():
-        depth = config.get("depth", 1.0)
-        offset = config.get("offset", 0.0)
-        shape = config.get("waveform", "sine")
-        phase_offset = config.get("phase", 0.0)
-        # Determine phase
-        if config.get("sync_mode") == "quantized":
+        # 1) Figure out period (either quantized or free)
+        if cfg.get("sync_mode") == "quantized":
             beats_per_sec = BPM / 60.0
-            bars         = config.get("period_beats", 1.0)
-            period_beats = bars * 4
-            period       = period_beats / beats_per_sec
+            pb            = cfg.get("period_beats", 1.0) * 4.0
+            period        = pb / beats_per_sec
         else:
-            period = 1.0 / max(config.get("hz", 0.1), 0.001)
+            period = 1.0 / max(cfg.get("hz", 0.1), 1e-3)
 
-        phase = ((now + phase_offset) % period) / period
-        raw_value = _waveform(phase, shape)
-        val = raw_value * depth + offset
-        # Clamp to [offset - depth, offset + depth]
-        minv = offset - depth
-        maxv = offset + depth
-        val  = max(minv, min(maxv, val))
+        # 2) Compute phase ∈ [0,1)
+        phase = ((now + phase_off) % period) / period
 
-        lfo_signals[key] = val
+        # 3) Raw waveform ∈ [-1,1]
+        raw = _waveform(phase, shape)
 
-    return lfo_signals
+        # 4) Scale + offset
+        val = raw * depth + offset
+
+        # 5) (Optional) Clamp into [-1,1] rather than ±depth
+        val = max(-1.0, min(1.0, val))
+
+        signals[name] = val
+
+    # debug print to verify live changes:
+    #print("LFOs:", {k:round(v,3) for k,v in signals.items()})
+    return signals

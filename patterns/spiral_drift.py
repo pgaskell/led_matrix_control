@@ -5,7 +5,7 @@ from colormaps import COLORMAPS
 # --- Adjustable Parameters ---
 PARAMS = {
     "SPIRAL_SPEED": {
-        "default": 0.05,  "min": -1.0, "max": 1.0, "step": 0.01,
+        "default": 0.01,  "min": -0.2, "max": 0.2, "step": 0.01,
         "modulatable": True,
         "mod_mode": "add"
     },

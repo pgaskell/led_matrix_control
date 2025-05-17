@@ -12,8 +12,18 @@ from PIL import Image
 from lfo import evaluate_lfos, LFO_CONFIG, BPM
 from audio_env import evaluate_env, ENV_CONFIG
 
+PANEL_WIDTH  = 8    # pixels per panel in X
+PANEL_HEIGHT = 8    # pixels per panel in Y
+PANELS_X     = 3    # how many panels across
+PANELS_Y     = 3    # how many panels down
 
-NUM_LEDS = 500           # total LEDs wired up
+WALL_W = PANEL_WIDTH  * PANELS_X   # e.g. 8*3 = 24
+WALL_H = PANEL_HEIGHT * PANELS_Y   # e.g. 8*3 = 24
+
+NUM_LEDS = PANEL_WIDTH*PANELS_X*PANEL_HEIGHT*PANELS_Y           # total LEDs wired up
+NUM_LEDS = 64
+
+
 led_matrix = WS2814('/dev/spidev0.0', NUM_LEDS, 800) 
 
 # --- Config ---
@@ -87,6 +97,32 @@ def load_patch(index):
     with open(f"patches/patch_{index:02d}.json", "r") as f:
         return json.load(f)
 
+def serpentine_index(x, y):
+    """
+    x,y are 0..(PANEL_WIDTH*PANELS_X -1), 0..(PANEL_HEIGHT*PANELS_Y -1)
+    Panels wired column-major top→down, then next column.
+    Inside each panel: each row is serpentine L→R then R→L.
+    """
+    # which panel
+    px = x // PANEL_WIDTH
+    py = y // PANEL_HEIGHT
+
+    # local coords inside panel
+    lx = x % PANEL_WIDTH
+    ly = y % PANEL_HEIGHT
+
+    # panel number in column-major, NO zig-zag at panel level
+    panel_num = px * PANELS_Y + py
+
+    # within-panel serpentine on rows
+    if (ly % 2) == 0:
+        cell_num = ly * PANEL_WIDTH + lx
+    else:
+        cell_num = ly * PANEL_WIDTH + (PANEL_WIDTH - 1 - lx)
+
+    leds_per_panel = PANEL_WIDTH * PANEL_HEIGHT
+    return panel_num * leds_per_panel + cell_num
+
 def restore_patch(index,
                   pattern_names,
                   patterns,
@@ -113,7 +149,7 @@ def restore_patch(index,
     module       = patterns[pattern_names[new_index]]
     param_specs  = module.PARAMS
     params       = patch["params"].copy()
-    pattern      = module.Pattern(24, 24, params=params)
+    pattern      = module.Pattern(WALL_W, WALL_H, params=params)
 
     # 2) UI elements
     sliders, dropdowns, mod_checkboxes = create_sliders(param_specs, params)
@@ -619,6 +655,7 @@ class LFOControlPanel:
             self.config["hz"] = int(self.mhz_dropdown.selected) / 1000.0
         else:
             self.config["period_beats"] = self._beats_value(self.beat_dropdown.selected)
+        #print(f"[{self.name}] depth={self.config['depth']:.2f}, offset={self.config['offset']:.2f}")
 
     def draw(self, screen, font):
     #Background
@@ -915,7 +952,7 @@ def launch_ui():
     params = {k: v["default"] for k, v in param_specs.items()}
     if "SPRITE" in param_specs:
         param_specs["SPRITE"]["options"] = sprite_names
-    pattern = module.Pattern(24, 24, params=params)
+    pattern = module.Pattern(WALL_W, WALL_H, params=params)
     sliders, dropdowns, mod_checkboxes = create_sliders(param_specs, params)
 
     # — Fixed dropdowns (won’t be recreated on pattern change) —
@@ -1013,7 +1050,7 @@ def launch_ui():
             mod = patterns[p["pattern"]]
             ps  = mod.PARAMS
             params = p["params"]
-            temp = mod.Pattern(24, 24, params=params)
+            temp = mod.Pattern(WALL_W, WALL_H, params=params)
             frame = temp.render(lfo_signals={})
             patch_icons[i] = make_thumbnail(
                 temp, frame,
@@ -1216,7 +1253,7 @@ def launch_ui():
 
                                 # 4) Rebuild UI controls
                                 sliders, dropdowns, mod_checkboxes = create_sliders(param_specs, params)
-                                pattern = module.Pattern(24, 24, params=params)
+                                pattern = module.Pattern(WALL_W, WALL_H, params=params)
                                 pattern.param_meta = param_specs
 
                                 # 5) Restore each param’s saved modulation flags
@@ -1315,7 +1352,7 @@ def launch_ui():
                     meta["mod_source"] = None
 
             sliders, dropdowns, mod_checkboxes = create_sliders(param_specs, params)
-            pattern = module.Pattern(24, 24, params=params)
+            pattern = module.Pattern(WALL_W, WALL_H, params=params)
         
         params["COLORMAP"] = colormap_dropdown.selected
         params["SPRITE"]   = sprite_dropdown.selected
@@ -1357,12 +1394,22 @@ def launch_ui():
                            sim_rect)
     
         # Output to the LED Matrix!
-        for i in range(min(NUM_LEDS, len(frame))):
-            r, g, b, _ = frame[i]
-            r, g, b = compensate_warm_white(r, g, b)
-            r4, g4, b4, w = rgb_to_rgbw_luma(r, g, b)
-            # now send r4, g4, b4 plus the white channel w:
-            led_matrix.set_led_color(i, r4, g4, b4, w)
+        wall_w = PANEL_WIDTH * PANELS_X
+        wall_h = PANEL_HEIGHT * PANELS_Y
+
+        for y in range(wall_h):
+            for x in range(wall_w):
+                # compute the index into your frame buffer:
+                linear = y * wall_w + x
+                if linear >= len(frame):
+                    continue
+                r, g, b, _ = frame[linear]
+                r, g, b = compensate_warm_white(r, g, b)
+                r4, g4, b4, w = rgb_to_rgbw_luma(r, g, b)
+
+                idx = serpentine_index(x, y)
+                if idx < NUM_LEDS:
+                    led_matrix.set_led_color(idx, r4, g4, b4, w)
         led_matrix.update_strip()
 
         # Mode Buttons (Save-mode, Tap-tempo, Show/Hide) ————————

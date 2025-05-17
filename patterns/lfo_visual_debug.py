@@ -6,17 +6,17 @@ PARAMS = {
     "SQUARE_X": {
         "default": 0.5, "min": 0.0, "max": 1.0, "step": 0.01,
         "modulatable": True,
-        "mod_mode": "replace"
+        "mod_mode": "add"
     },
     "SQUARE_Y": {
         "default": 0.5, "min": 0.0, "max": 1.0, "step": 0.01,
         "modulatable": True,
-        "mod_mode": "replace"
+        "mod_mode": "add"
     },
     "LUT_INDEX": {
         "default": 0.5, "min": 0.0, "max": 1.0, "step": 0.01,
         "modulatable": True,
-        "mod_mode": "replace"
+        "mod_mode": "add"
     }  
 }
 
@@ -64,9 +64,9 @@ class Pattern(BasePattern):
 
         # Draw square
         frame = [(0, 0, 0, 0)] * (self.width * self.height)
-        square_size = 3
-        for j in range(-square_size, square_size + 1):
-            for i in range(-square_size, square_size + 1):
+        square_size = 1
+        for j in range(0, square_size):
+            for i in range(0, square_size):
                 px = x + i
                 py = y + j
                 if 0 <= px < self.width and 0 <= py < self.height:

@@ -12,10 +12,10 @@ PARAMS = {
         "options": list(COLORMAPS.keys())
     },
     "DEPTH_MIN": { 
-        "default": 500, "min": 500, "max": 4500, "step": 100
+        "default": 500, "min": 1, "max": 2047, "step": 10
     },
     "DEPTH_MAX": {
-        "default": 4000, "min": 500, "max": 4500, "step": 100
+        "default": 2047, "min": 500, "max": 2047, "step": 10
     },
 }
 
@@ -28,13 +28,13 @@ class Pattern(BasePattern):
         # 1) grab one frame of depth (11-bit, 0–2047)
         depth_raw, _ = freenect.sync_get_depth()
         # freenect returns 480×640; convert to millimeters-ish
-        depth_mm = depth_raw.astype(np.float32)
+        # depth_mm = depth_raw.astype(np.float32)
 
         # 2) clip & normalize
         dmin = self.params["DEPTH_MIN"]
         dmax = self.params["DEPTH_MAX"]
-        clipped = np.clip(depth_mm, dmin, dmax)
-        norm = (clipped - dmin) / float(dmax - dmin)  # in [0..1]
+        clipped = np.clip(depth_raw, dmin, dmax)
+        norm = clipped / dmax  # in [0..1]
 
         # 3) downsample to LED matrix size
         #    we'll do simple block averaging
