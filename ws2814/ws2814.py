@@ -41,7 +41,7 @@ class WS2814:
 
     def send_spi_data(self):
         """Send the raw data buffer to the NeoPixel strip via SPI"""
-        pause = [0x00] * 300
+        pause = [0x00] * 250
         spi_message = bytes(pause + self.raw_data + pause)
         self.spi.xfer3(list(spi_message))  #previously spi.xfer2
 

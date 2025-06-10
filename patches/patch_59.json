@@ -22,20 +22,20 @@
     "lfo1": {
       "waveform": "sine",
       "depth": 1.0,
+      "offset": 0.0,
       "sync_mode": "quantized",
       "hz": 0.5,
       "period_beats": 1.0,
-      "phase": 0.0,
-      "offset": 0.0
+      "phase": 0.0
     },
     "lfo2": {
       "waveform": "saw",
       "depth": 0.5700000000000001,
+      "offset": 0.0,
       "sync_mode": "free",
       "hz": 0.05,
       "period_beats": 2.0,
-      "phase": 0.0,
-      "offset": 0.0
+      "phase": 0.0
     }
   },
   "env_config": {
@@ -47,10 +47,10 @@
       "mode": "up"
     },
     "envh": {
-      "threshold_db": -19,
-      "gain_db": -16,
-      "attack": 0.02,
-      "release": 0.15,
+      "threshold_db": -27,
+      "gain_db": 10,
+      "attack": 0.01,
+      "release": 0.1,
       "mode": "up"
     }
   }

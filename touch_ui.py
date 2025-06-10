@@ -1,4 +1,3 @@
-
 import pygame
 import random
 import time
@@ -11,6 +10,7 @@ from os.path import join, isfile
 from PIL import Image
 from lfo import evaluate_lfos, LFO_CONFIG, BPM
 from audio_env import evaluate_env, ENV_CONFIG
+from gamma import init_gamma, apply_gamma
 
 PANEL_WIDTH  = 8    # pixels per panel in X
 PANEL_HEIGHT = 8    # pixels per panel in Y
@@ -20,11 +20,15 @@ PANELS_Y     = 3    # how many panels down
 WALL_W = PANEL_WIDTH  * PANELS_X   # e.g. 8*3 = 24
 WALL_H = PANEL_HEIGHT * PANELS_Y   # e.g. 8*3 = 24
 
-NUM_LEDS = PANEL_WIDTH*PANELS_X*PANEL_HEIGHT*PANELS_Y           # total LEDs wired up
-NUM_LEDS = 64
-
+NUM_LEDS = PANEL_WIDTH*PANELS_X*PANEL_HEIGHT*PANELS_Y
+#NUM_LEDS = PANEL_WIDTH*PANELS_X*PANEL_HEIGHT*PANELS_Y           # total LEDs wired up
+NUM_LEDS = 9*64
+#NUM_LEDS = 64 # single panel
+FRAME_RATE = 45
 
 led_matrix = WS2814('/dev/spidev0.0', NUM_LEDS, 800) 
+brightness = 0.65
+
 
 # --- Config ---
 SCREEN_WIDTH = 1024
@@ -37,6 +41,21 @@ FONT_SIZE = 20
 SLIDER_COLOR = (100, 200, 255)
 BG_COLOR = (30, 30, 30)
 instant_update = True
+
+init_gamma(
+    gammas = {
+        "r": 0.65,
+        "g": 0.65,
+        "b": 0.65,
+        "w": 0.65
+    },
+    scales = {
+        "r": 1.25,   # red is usually “normal”
+        "g": 1.25,   # green looks a bit too bright
+        "b": 1.25,   # blue tends to be dimmer
+        "w": 1.25    # white LED is often very bright, so scale it way down
+    }
+)
 
 # --- Load Patterns ---
 def load_patterns():
@@ -1095,10 +1114,7 @@ def launch_ui():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            # 1) First, let *every* UI control see *every* event:
-            # pattern_dropdown.handle_event(event) 
-            # colormap_dropdown.handle_event(event)
-            # sprite_dropdown .handle_event(event)
+            
             for d in dropdowns: d.handle_event(event)
             for s in sliders: s.handle_event(event)
             for c in mod_checkboxes:
@@ -1127,14 +1143,14 @@ def launch_ui():
             envl_panel.handle_event(event)
             envh_panel.handle_event(event)
 
-                # N-Beats slider
+            # N-Beats slider
             if cycle_dropdown.handle_event(event):
                 cycle_beats = int(cycle_dropdown.selected)
                 continue
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 # First, let the top dropdowns handle it
-                # (pattern dropdown, colormap dropdown, sprite dropdown)
+                # pattern dropdown, colormap dropdown, sprite dropdown
                 if pattern_dropdown.handle_event(event):
                     continue
                 if colormap_dropdown.handle_event(event):
@@ -1230,7 +1246,7 @@ def launch_ui():
                             if patches[i]:
                                 patch = load_patch(i)
 
-                                # 1) Switch to saved pattern
+                                # Switch to saved pattern
                                 pattern_name   = patch["pattern"]
                                 current_index  = pattern_names.index(pattern_name)
                                 pattern_dropdown.selected = pattern_name
@@ -1238,25 +1254,25 @@ def launch_ui():
                                 module      = patterns[pattern_name]
                                 param_specs = module.PARAMS
 
-                                # 2) Restore params (including COLORMAP & SPRITE)
+                                # Restore params (including COLORMAP & SPRITE)
                                 params = patch["params"].copy()
                                 if "COLORMAP" in params:
                                     colormap_dropdown.selected = params["COLORMAP"]
                                 if "SPRITE" in params:
                                     sprite_dropdown.selected  = params["SPRITE"]
 
-                                # 3) Disable all modulatable defaults
+                                # Disable all modulatable defaults
                                 for meta in param_specs.values():
                                     if isinstance(meta, dict) and meta.get("modulatable"):
                                         meta["mod_active"] = False
                                         meta["mod_source"] = None
 
-                                # 4) Rebuild UI controls
+                                # Rebuild UI controls
                                 sliders, dropdowns, mod_checkboxes = create_sliders(param_specs, params)
                                 pattern = module.Pattern(WALL_W, WALL_H, params=params)
                                 pattern.param_meta = param_specs
 
-                                # 5) Restore each param’s saved modulation flags
+                                # Restore each param’s saved modulation flags
                                 for key, m in patch["modulation"].items():
                                     if key in param_specs:
                                         param_specs[key]["mod_active"] = m["mod_active"]
@@ -1268,7 +1284,7 @@ def launch_ui():
                                                 and c.source_id == m["mod_source"]):
                                                 c.active = True
 
-                                # 6) Restore LFO configuration
+                                # Restore LFO configuration
                                 for name, saved_cfg in patch["lfo_config"].items():
                                     if name in LFO_CONFIG:
                                         LFO_CONFIG[name].clear()
@@ -1285,7 +1301,7 @@ def launch_ui():
                                     else:
                                         panel.beat_dropdown.selected   = panel._beats_label(cfg["period_beats"])
                                 
-                                # — Restore ENV configuration —
+                                # Restore ENV configuration 
                                 for name, saved_cfg in patch["env_config"].items():
                                     if name in ENV_CONFIG:
                                         ENV_CONFIG[name].clear()
@@ -1405,11 +1421,17 @@ def launch_ui():
                     continue
                 r, g, b, _ = frame[linear]
                 r, g, b = compensate_warm_white(r, g, b)
-                r4, g4, b4, w = rgb_to_rgbw_luma(r, g, b)
-
+                r4, g4, b4, w = rgb_to_rgbw_extra(r, g, b)
+                r_corr, g_corr, b_corr, w_corr = apply_gamma(r4, g4, b4, w)
                 idx = serpentine_index(x, y)
+                r_out = int(brightness * r_corr)
+                g_out = int(brightness * g_corr)
+                b_out = int(brightness * b_corr)
+                w_out = int(brightness * w_corr)
+
                 if idx < NUM_LEDS:
-                    led_matrix.set_led_color(idx, r4, g4, b4, w)
+                    led_matrix.set_led_color(idx, r_out, g_out, b_out, w_out)
+                    # led_matrix.set_led_color(idx, r, g, b, 0)
         led_matrix.update_strip()
 
         # Mode Buttons (Save-mode, Tap-tempo, Show/Hide) ————————
@@ -1563,7 +1585,7 @@ def launch_ui():
 
         # Final Flip 
         pygame.display.flip()
-        clock.tick(30)
+        clock.tick(FRAME_RATE)
 
     for i in range(min(NUM_LEDS, len(frame))):
         led_matrix.set_led_color(i, 0, 0, 0, 0)

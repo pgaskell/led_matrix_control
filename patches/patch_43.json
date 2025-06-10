@@ -1,32 +1,38 @@
 {
-  "pattern": "envelope",
+  "pattern": "starfield",
   "params": {
-    "SCROLL_SPEED": 0.1,
-    "Y_SCALE": 0.2,
-    "THICKNESS": 2,
-    "COLOR_OFFSET": 0.52,
-    "COLORMAP": "neon_spectrum",
+    "STAR_COUNT": 200,
+    "SPEED": 0.86,
+    "FOV": 170.0,
+    "TWINKLE": 0.73,
+    "COLOR_SHIFT": 0.0,
+    "COLORMAP": "red_green",
     "SPRITE": "none"
   },
   "modulation": {
-    "SCROLL_SPEED": {
+    "STAR_COUNT": {
+      "mod_active": true,
+      "mod_source": "envh",
+      "mod_mode": "replace"
+    },
+    "SPEED": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
     },
-    "Y_SCALE": {
+    "FOV": {
+      "mod_active": true,
+      "mod_source": "lfo1",
+      "mod_mode": "add"
+    },
+    "TWINKLE": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "scale"
     },
-    "THICKNESS": {
+    "COLOR_SHIFT": {
       "mod_active": false,
       "mod_source": null,
-      "mod_mode": "add"
-    },
-    "COLOR_OFFSET": {
-      "mod_active": true,
-      "mod_source": "envl",
       "mod_mode": "add"
     }
   },
@@ -34,6 +40,7 @@
     "lfo1": {
       "waveform": "sine",
       "depth": 1.0,
+      "offset": 0.0,
       "sync_mode": "quantized",
       "hz": 0.5,
       "period_beats": 1.0,
@@ -42,6 +49,7 @@
     "lfo2": {
       "waveform": "triangle",
       "depth": 1.0,
+      "offset": 0.0,
       "sync_mode": "free",
       "hz": 0.2,
       "period_beats": 2.0,
@@ -50,18 +58,18 @@
   },
   "env_config": {
     "envl": {
-      "threshold_db": -40,
-      "gain_db": 10,
-      "attack": 0.005,
-      "release": 0.1,
+      "threshold_db": -31,
+      "gain_db": 0,
+      "attack": 0.01,
+      "release": 0.15,
       "mode": "up"
     },
     "envh": {
-      "threshold_db": -40,
-      "gain_db": -8,
+      "threshold_db": -21,
+      "gain_db": 8,
       "attack": 0.005,
-      "release": 0.1,
-      "mode": "up"
+      "release": 0.05,
+      "mode": "updown"
     }
   }
 }

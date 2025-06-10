@@ -3,6 +3,10 @@ import colorsys
 from PIL import Image
 import spidev
 from ws2814 import WS2814
+from gamma import init_gamma, apply_gamma
+import tkinter as tk
+from tkinter import filedialog
+
 
 # ─── WALL / PANEL CONFIG ────────────────────────────────────────────────────
 PANEL_WIDTH  = 8
@@ -17,7 +21,24 @@ GRID_W = X_PANELS * PANEL_WIDTH   # e.g. 3×8 = 24
 GRID_H = Y_PANELS * PANEL_HEIGHT  # e.g. 3×8 = 24
 
 NUM_LEDS = PANEL_WIDTH*X_PANELS*PANEL_HEIGHT*Y_PANELS  # total LEDs wired up
-NUM_LEDS = 64
+
+tk_root = tk.Tk()
+tk_root.withdraw()
+
+init_gamma(
+    gammas = {
+        "r": 0.65,
+        "g": 0.65,
+        "b": 0.65,
+        "w": 0.85
+    },
+    scales = {
+        "r": 1.00,   # red is usually “normal”
+        "g": 0.85,   # green looks a bit too bright
+        "b": 0.80,   # blue tends to be dimmer
+        "w": 0.90    # white LED is often very bright, so scale it way down
+    }
+)
 
 def serpentine_index(x, y):
     """
@@ -79,6 +100,34 @@ def rgb_to_rgbw_hsv(r, g, b):
     w4 = int(w_frac * 255)
 
     return (r4, g4, b4, w4)
+
+def ask_sprite_filename():
+    # 1) release Pygame’s grab so Tkinter can grab focus
+    pygame.event.set_grab(False)
+    pygame.mouse.set_visible(True)
+
+    # 2) fire up a hidden Tk root to host the standard file dialog
+    root = tk.Tk()
+    root.withdraw()               # hide the empty root window
+    root.attributes("-topmost", 1)  # make sure it pops up in front
+    root.update()                 # allow geometry/focus to settle
+
+    # 3) actually ask for a file
+    filename = filedialog.askopenfilename(
+        title="Open Sprite",
+        filetypes=[("PNG images", "*.png"), ("GIF animations", "*.gif")],
+    )
+
+    # 4) clean up the Tk window
+    root.destroy()
+
+    # 5) restore Pygame’s grab if you want it back
+    pygame.event.set_grab(True)
+    # you can hide the mouse again if that’s your normal behavior
+    # pygame.mouse.set_visible(False)
+
+    return filename
+
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────
 SPRITE_DIR = "sprites"
@@ -286,10 +335,12 @@ def main():
     # Tools: Pencil, Toggle Size, Eraser, Clear
     tool_buttons = [
         Button(sidebar_x,                   MARGIN,              BUTTON_W, BUTTON_H, "Pencil"),
-        Button(sidebar_x + BUTTON_W + 5,    MARGIN,              BUTTON_W, BUTTON_H, "Toggle Size"),
         Button(sidebar_x,                   MARGIN + BUTTON_H+5, BUTTON_W, BUTTON_H, "Eraser"),
         Button(sidebar_x + BUTTON_W + 5,    MARGIN + BUTTON_H+5, BUTTON_W, BUTTON_H, "Clear"),
     ]
+
+    open_btn = Button(sidebar_x + BUTTON_W + 5, MARGIN, BUTTON_W, BUTTON_H, "Open...")
+
     cur_tool = "pencil"
 
     # Palette matrix: 4×4
@@ -306,13 +357,18 @@ def main():
     # bottom controls
     btn_prev      = Button(MARGIN,       MARGIN+grid_px_w+5, BUTTON_W, BUTTON_H, "← Prev")
     btn_copy      = Button(MARGIN+100,   MARGIN+grid_px_w+5, BUTTON_W, BUTTON_H, "Copy ←")
-    btn_next      = Button(MARGIN+200,   MARGIN+grid_px_w+5, BUTTON_W, BUTTON_H, "Next →")
-    btn_png       = Button(MARGIN+300,   MARGIN+grid_px_w+5, BUTTON_W, BUTTON_H, "Save PNG")
-    btn_gif       = Button(MARGIN+400,   MARGIN+grid_px_w+5, BUTTON_W, BUTTON_H, "Save GIF")
+    btn_delete    = Button(MARGIN+200,   MARGIN+grid_px_w+5, BUTTON_W, BUTTON_H, "Del")
+    btn_next      = Button(MARGIN+300,   MARGIN+grid_px_w+5, BUTTON_W, BUTTON_H, "Next →")
+    btn_png       = Button(MARGIN+400,   MARGIN+grid_px_w+5, BUTTON_W, BUTTON_H, "Save PNG")
+    btn_gif       = Button(MARGIN+500,   MARGIN+grid_px_w+5, BUTTON_W, BUTTON_H, "Save GIF")
     input_rect    = pygame.Rect( MARGIN, MARGIN+grid_px_w+5+BUTTON_H+5,
                                  200, INPUT_H )
     filename_text = ""
     input_active  = False
+
+    SPRITE_EXTS = (".png", ".gif")
+    sprite_files = sorted(f for f in os.listdir(SPRITE_DIR)
+                      if f.lower().endswith(SPRITE_EXTS))
 
     running = True
     painting = False
@@ -347,16 +403,16 @@ def main():
                                     else:
                                         # simple RGB→RGBW: all white = min(r,g,b)
                                         r, g, b, w = rgb_to_rgbw_hsv(r, g, b)
-                                        # optionally compensate for warm white here…
-                                        led.set_led_color(idx, r, g, b, w)
+                                        r_corr, g_corr, b_corr, w_corr = apply_gamma(r, g, b, w)
+                                        led.set_led_color(idx, r_corr, g_corr, b_corr, w_corr)
                         led.update_strip()
 
                 # 2) Tool buttons (Pencil, Eraser, Clear)
                 if tool_buttons[0].hit(ev.pos):
                     cur_tool = "pencil"
-                elif tool_buttons[2].hit(ev.pos):
+                elif tool_buttons[1].hit(ev.pos):
                     cur_tool = "eraser"
-                elif tool_buttons[3].hit(ev.pos):
+                elif tool_buttons[2].hit(ev.pos):
                     # clear current frame
                     frames[cur_frame].fill((0, 0, 0, 0))
 
@@ -375,7 +431,18 @@ def main():
                     if cur_frame > 0:
                         frames[cur_frame].blit(frames[cur_frame-1], (0, 0))
                     frame_update = True
-
+                
+                elif btn_delete.hit(ev.pos):
+                    # remove the current frame
+                    if len(frames) > 1:
+                        frames.pop(cur_frame)
+                        # clamp current index
+                        cur_frame = min(cur_frame, len(frames)-1)
+                    else:
+                        # if only one frame, just clear it
+                        frames[0].fill((0,0,0,0))
+                    frame_update = True
+                
                 elif btn_next.hit(ev.pos):
                     if cur_frame == len(frames) - 1:
                         frames.append(make_frame())
@@ -390,6 +457,31 @@ def main():
 
                 elif btn_gif.hit(ev.pos):
                     save_gif(frames, grid_w, grid_h, filename_text)
+
+                elif open_btn.hit(ev.pos):
+                    path = ask_sprite_filename()
+                    if path:
+                        # …your existing code to load the PNG/GIF into frames…
+                        frames.clear()
+                        cur_frame = 0
+                        if path.lower().endswith(".png"):
+                            surf = pygame.image.load(path).convert_alpha()
+                            surf = pygame.transform.scale(surf, (GRID_W, GRID_H))
+                            frames.append(surf)
+                        else:
+                            gif = Image.open(path)
+                            try:
+                                while True:
+                                    f = gif.convert("RGBA")
+                                    data = f.tobytes()
+                                    surf = pygame.image.fromstring(data, f.size, f.mode).convert_alpha()
+                                    surf = pygame.transform.scale(surf, (GRID_W, GRID_H))
+                                    frames.append(surf)
+                                    gif.seek(gif.tell() + 1)
+                            except EOFError:
+                                pass
+
+                    frame_update = True
 
                 # 5) Filename text entry
                 elif input_rect.collidepoint(ev.pos):
@@ -418,8 +510,9 @@ def main():
                                 else:
                                     # simple RGB→RGBW: all white = min(r,g,b)
                                     r, g, b, w = rgb_to_rgbw_hsv(r, g, b)
+                                    r_corr, g_corr, b_corr, w_corr = apply_gamma(r, g, b, w)
                                     # optionally compensate for warm white here…
-                                    led.set_led_color(idx, r, g, b, w)
+                                    led.set_led_color(idx, r_corr, g_corr, b_corr, w_corr)
                             led.update_strip()
 
             elif ev.type == pygame.KEYDOWN and input_active:
@@ -462,8 +555,10 @@ def main():
                 pygame.draw.rect(screen,(255,255,255), rect,2)
 
         # bottom buttons
-        for btn in (btn_prev, btn_copy, btn_next, btn_png, btn_gif):
+        for btn in (btn_prev, btn_copy, btn_delete, btn_next, btn_png, btn_gif):
             btn.draw(screen, font)
+        
+        open_btn.draw(screen, font)
 
         # filename input box
         pygame.draw.rect(screen, (255,255,255) if input_active else (200,200,200),
@@ -485,8 +580,10 @@ def main():
                         if a == 0:
                             led.set_led_color(idx, 0,0,0,0)
                         else:
-                            r,g,b,w = rgb_to_rgbw_hsv(r,g,b)
-                            led.set_led_color(idx, r, g, b, w)
+                            r, g, b, w = rgb_to_rgbw_hsv(r, g, b)
+                            r_corr, g_corr, b_corr, w_corr = apply_gamma(r, g, b, w)
+                            # optionally compensate for warm white here…
+                            led.set_led_color(idx, r_corr, g_corr, b_corr, w_corr)
             led.update_strip()
             frame_update = False
 

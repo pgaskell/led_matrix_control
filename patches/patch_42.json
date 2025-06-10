@@ -1,32 +1,38 @@
 {
-  "pattern": "envelope",
+  "pattern": "particle_vortex",
   "params": {
-    "SCROLL_SPEED": 0.1,
-    "Y_SCALE": 0.2,
-    "THICKNESS": 2,
-    "COLOR_OFFSET": 0.52,
-    "COLORMAP": "red_blue",
+    "SPAWN_RATE": 0.74,
+    "SWIRL_STRENGTH": 1.29,
+    "RADIAL_SPEED": 0.01,
+    "LIFESPAN": 5.2,
+    "HUE_SHIFT": 0.0,
+    "COLORMAP": "rainbow",
     "SPRITE": "none"
   },
   "modulation": {
-    "SCROLL_SPEED": {
+    "SPAWN_RATE": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
     },
-    "Y_SCALE": {
-      "mod_active": false,
-      "mod_source": null,
-      "mod_mode": "scale"
-    },
-    "THICKNESS": {
+    "SWIRL_STRENGTH": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
     },
-    "COLOR_OFFSET": {
+    "RADIAL_SPEED": {
       "mod_active": true,
-      "mod_source": "envl",
+      "mod_source": "envh",
+      "mod_mode": "add"
+    },
+    "LIFESPAN": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "add"
+    },
+    "HUE_SHIFT": {
+      "mod_active": false,
+      "mod_source": null,
       "mod_mode": "add"
     }
   },
@@ -34,6 +40,7 @@
     "lfo1": {
       "waveform": "sine",
       "depth": 1.0,
+      "offset": 0.0,
       "sync_mode": "quantized",
       "hz": 0.5,
       "period_beats": 1.0,
@@ -42,6 +49,7 @@
     "lfo2": {
       "waveform": "triangle",
       "depth": 1.0,
+      "offset": 0.0,
       "sync_mode": "free",
       "hz": 0.2,
       "period_beats": 2.0,
@@ -50,15 +58,15 @@
   },
   "env_config": {
     "envl": {
-      "threshold_db": -40,
-      "gain_db": 10,
+      "threshold_db": -10,
+      "gain_db": 0,
       "attack": 0.005,
       "release": 0.1,
       "mode": "up"
     },
     "envh": {
-      "threshold_db": -40,
-      "gain_db": -8,
+      "threshold_db": -10,
+      "gain_db": 0,
       "attack": 0.005,
       "release": 0.1,
       "mode": "up"

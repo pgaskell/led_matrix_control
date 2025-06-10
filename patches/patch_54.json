@@ -1,46 +1,40 @@
 {
-  "pattern": "starfield",
+  "pattern": "lissajous_loop",
   "params": {
-    "STAR_COUNT": 500,
-    "SPEED": 1.0,
-    "FOV": 50.0,
-    "TWINKLE": 0.5,
-    "COLOR_SHIFT": 0.0,
-    "COLORMAP": "cyber_shift",
+    "X_FREQ": 6.2,
+    "Y_FREQ": 3.1,
+    "PHASE": 0.5,
+    "COLOR_CENTER": 0.2,
+    "COLORMAP": "rainbow",
     "SPRITE": "none"
   },
   "modulation": {
-    "STAR_COUNT": {
-      "mod_active": false,
-      "mod_source": null,
-      "mod_mode": "replace"
-    },
-    "SPEED": {
+    "X_FREQ": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
     },
-    "FOV": {
+    "Y_FREQ": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
     },
-    "TWINKLE": {
-      "mod_active": false,
-      "mod_source": null,
-      "mod_mode": "scale"
+    "PHASE": {
+      "mod_active": true,
+      "mod_source": "lfo2",
+      "mod_mode": "add"
     },
-    "COLOR_SHIFT": {
-      "mod_active": false,
-      "mod_source": null,
+    "COLOR_CENTER": {
+      "mod_active": true,
+      "mod_source": "lfo1",
       "mod_mode": "add"
     }
   },
   "lfo_config": {
     "lfo1": {
       "waveform": "sine",
-      "depth": 1.0,
-      "offset": 0.0,
+      "depth": 0.5,
+      "offset": 0.03,
       "sync_mode": "quantized",
       "hz": 0.5,
       "period_beats": 1.0,
@@ -48,7 +42,7 @@
     },
     "lfo2": {
       "waveform": "triangle",
-      "depth": 1.0,
+      "depth": 0.5,
       "offset": 0.0,
       "sync_mode": "free",
       "hz": 0.2,
@@ -58,8 +52,8 @@
   },
   "env_config": {
     "envl": {
-      "threshold_db": -40,
-      "gain_db": -6,
+      "threshold_db": -10,
+      "gain_db": 0,
       "attack": 0.005,
       "release": 0.1,
       "mode": "up"

@@ -1,36 +1,34 @@
 {
-  "pattern": "starfield",
+  "pattern": "Plasma_2",
   "params": {
-    "STAR_COUNT": 500,
-    "SPEED": 1.0,
-    "FOV": 50.0,
-    "TWINKLE": 0.5,
+    "RING_SPACING": 0.2,
+    "EXPANSION_SPEED": 0.5,
+    "RING_THICKNESS": 0.05,
     "COLOR_SHIFT": 0.0,
-    "COLORMAP": "cyber_shift",
-    "SPRITE": "none"
+    "COLORMAP": "cool",
+    "SPRITE": "HM4A2",
+    "SPEED": 1.0,
+    "FREQUENCY": 10.0,
+    "AMPLITUDE": 1.0,
+    "LUT_SHIFT": 0.0
   },
   "modulation": {
-    "STAR_COUNT": {
-      "mod_active": false,
-      "mod_source": null,
-      "mod_mode": "replace"
-    },
     "SPEED": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
     },
-    "FOV": {
+    "FREQUENCY": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
     },
-    "TWINKLE": {
+    "AMPLITUDE": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "scale"
     },
-    "COLOR_SHIFT": {
+    "LUT_SHIFT": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
@@ -58,8 +56,8 @@
   },
   "env_config": {
     "envl": {
-      "threshold_db": -40,
-      "gain_db": -6,
+      "threshold_db": -10,
+      "gain_db": 0,
       "attack": 0.005,
       "release": 0.1,
       "mode": "up"

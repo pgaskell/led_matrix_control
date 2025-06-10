@@ -1,26 +1,20 @@
 {
-  "pattern": "stripes",
+  "pattern": "square",
   "params": {
-    "STRIPE_SPEED": -0.01,
-    "STRIPE_WIDTH": 1.5,
-    "STRIPE_ANGLE": 127.0,
-    "COLORMAP": "pastels",
+    "SIZE": 1.0,
+    "COLOR_POS": 0.23,
+    "COLORMAP": "red_blue",
     "SPRITE": "none"
   },
   "modulation": {
-    "STRIPE_SPEED": {
+    "SIZE": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
     },
-    "STRIPE_WIDTH": {
-      "mod_active": false,
-      "mod_source": null,
-      "mod_mode": "add"
-    },
-    "STRIPE_ANGLE": {
-      "mod_active": false,
-      "mod_source": null,
+    "COLOR_POS": {
+      "mod_active": true,
+      "mod_source": "envh",
       "mod_mode": "add"
     }
   },
@@ -35,11 +29,11 @@
       "phase": 0.0
     },
     "lfo2": {
-      "waveform": "triangle",
-      "depth": 1.0,
+      "waveform": "saw",
+      "depth": 0.5700000000000001,
       "offset": 0.0,
       "sync_mode": "free",
-      "hz": 0.2,
+      "hz": 0.05,
       "period_beats": 2.0,
       "phase": 0.0
     }
@@ -47,15 +41,15 @@
   "env_config": {
     "envl": {
       "threshold_db": -10,
-      "gain_db": 0,
+      "gain_db": -26,
       "attack": 0.005,
       "release": 0.1,
       "mode": "up"
     },
     "envh": {
-      "threshold_db": -10,
-      "gain_db": 0,
-      "attack": 0.005,
+      "threshold_db": -27,
+      "gain_db": 10,
+      "attack": 0.01,
       "release": 0.1,
       "mode": "up"
     }
