@@ -46,7 +46,6 @@ A flexible, touch-enabled UI and toolkit for driving an LED wall or strip.  Feat
 - [sounddevice](https://github.com/spatialaudio/python-sounddevice) (for audio envelopes)  
 - `spidev` module (for direct SPI driving)  
 
-
 Install via:
 
 ```bash
