@@ -1,5 +1,7 @@
 # LED Matrix Control
 
+![alt text](https://raw.githubusercontent.com/pgaskell/led_matrix_control/main/images/led_wall.png "LED Matrix")
+
 **Authors:** P. Gaskell & ChatGPT  
 **GitHub:** [pgaskell/led_matrix_control](https://github.com/pgaskell/led_matrix_control)
 
