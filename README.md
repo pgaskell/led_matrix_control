@@ -31,11 +31,12 @@ A flexible, touch-enabled UI and toolkit for driving an LED wall or strip.  Feat
 5. [Patterns](#patterns)  
 6. [Modulation Sources](#modulation-sources)  
 7. [Patch System](#patch-system)  
-8. [Sprite Editor](#sprite-editor)  
-9. [Hardware Output](#hardware-output)  
-10. [Configuration & Calibration](#configuration--calibration)  
-11. [Extending & Contributing](#extending--contributing)  
-12. [License](#license)
+8. [Sprite Editor](#sprite-editor)
+9. [pixilart.com](#pixelart)
+10. [Hardware Output](#hardware-output)  
+11. [Configuration & Calibration](#configuration--calibration)  
+12. [Extending & Contributing](#extending--contributing)  
+13. [License](#license)
 
 ---
 
@@ -176,6 +177,43 @@ Separate app `sprite_editor.py`:
 * **Live LED output** (optional): SPI push to your LED wall as you draw
 
 ---
+## pixilart.com
+
+* Use to create PNGs or Animated GIFs with specific resolution.
+
+    Open the editor
+    Go to https://www.pixilart.com and click Start Drawing, or navigate directly to the editor at /draw.
+
+    Set your dimensions
+    In the New Drawing dialog, enter:
+
+        Width: 16
+
+        Height: 16 (or 40 for a 16×40 canvas)
+
+    Background choice
+
+        Transparent if you want no backdrop, or pick a solid color.
+
+    Create
+    Click Create to open your blank canvas.
+    pixilart.com
+
+* Export a Static PNG in the Download pane and choose “1×” (native size)
+* Building an Animated GIF
+* Add and Manage Frames
+
+    Open the Frames panel (usually at the bottom of the screen).
+
+    Click + Frame or Duplicate Frame to add new frames.
+    Draw each frame in turn.
+
+* Use Onion Skinning
+
+    Toggle Onion Skin to ghost-view the previous frame below your cursor—great for smooth animations.
+
+* Export a GIF from Download pane, maintain resolution
+___
 
 ## Hardware Output
 
@@ -187,7 +225,7 @@ Abstracted in `ws2814.py` / `rpi_ws281x`:
 
   ```python
   PANEL_WIDTH, PANEL_HEIGHT = 8, 8
-  PANELS_X, PANELS_Y     = 3, 3
+  PANELS_X, PANELS_Y     = 5, 2
   ```
 * Handles reset pulse and timing via SPI or PWM drivers
 
