@@ -58,7 +58,7 @@ def main():
     panel.update_strip()
     #panel.fill_strip(0, 0, 0, 0) # R G B W
     for i in range(WALL_W):
-        r_corr, g_corr, b_corr, w_corr = apply_gamma(i * int(255/WALL_W),0,i * int(255/WALL_W),i * int(255/WALL_W))
+        r_corr, g_corr, b_corr, w_corr = apply_gamma(i * int(255/WALL_W),0,255 - i * int(255/WALL_W),0)
         for j in range(WALL_H): 
             panel.set_led_color(serpentine_index(i, j), r_corr, g_corr, b_corr, w_corr)
         print((r_corr, g_corr, b_corr, w_corr))

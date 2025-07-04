@@ -14,20 +14,17 @@ from gamma import init_gamma, apply_gamma
 
 PANEL_WIDTH  = 8    # pixels per panel in X
 PANEL_HEIGHT = 8    # pixels per panel in Y
-PANELS_X     = 3    # how many panels across
-PANELS_Y     = 3    # how many panels down
+PANELS_X     = 5    # how many panels across
+PANELS_Y     = 2    # how many panels down
 
 WALL_W = PANEL_WIDTH  * PANELS_X   # e.g. 8*3 = 24
 WALL_H = PANEL_HEIGHT * PANELS_Y   # e.g. 8*3 = 24
 
 NUM_LEDS = PANEL_WIDTH*PANELS_X*PANEL_HEIGHT*PANELS_Y
-#NUM_LEDS = PANEL_WIDTH*PANELS_X*PANEL_HEIGHT*PANELS_Y           # total LEDs wired up
-NUM_LEDS = 9*64
-#NUM_LEDS = 64 # single panel
 FRAME_RATE = 45
 
 led_matrix = WS2814('/dev/spidev0.0', NUM_LEDS, 800) 
-brightness = 0.65
+brightness = 0.3
 
 
 # --- Config ---
