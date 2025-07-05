@@ -140,7 +140,6 @@ All patterns live in `patterns/`.  Each defines:
 * **`circles.py`**: expanding ripples, thickness & palette shift
 * **`vu_meter.py`**: VU-style bars from FFT bands
 * **`game_of_life.py`**: Conway’s Game of Life with modulateable birth/death thresholds
-* **`plaidimation.py`**: animated plaid weave
 
 Add new patterns by dropping `your_pattern.py` into `patterns/`.  Follow the template in `patterns/base.py`.
 
@@ -186,33 +185,17 @@ Separate app `sprite_editor.py`:
 
     Set your dimensions
     In the New Drawing dialog, enter:
-
         Width: 16
-
         Height: 16 (or 40 for a 16×40 canvas)
-
-    Background choice
-
-        Transparent if you want no backdrop, or pick a solid color.
-
-    Create
-    Click Create to open your blank canvas.
-    pixilart.com
+    Transparent if you want no backdrop, or pick a solid color.
 
 * Export a Static PNG in the Download pane and choose “1×” (native size)
-* Building an Animated GIF
-* Add and Manage Frames
 
-    Open the Frames panel (usually at the bottom of the screen).
-
-    Click + Frame or Duplicate Frame to add new frames.
-    Draw each frame in turn.
-
-* Use Onion Skinning
+* You can build animated gifs as well
 
     Toggle Onion Skin to ghost-view the previous frame below your cursor—great for smooth animations.
 
-* Export a GIF from Download pane, maintain resolution
+* Export a GIF from Download pane, maintain resolution with “1×” (native size)
 ___
 
 ## Hardware Output
@@ -252,8 +235,7 @@ Please submit issues or pull requests on GitHub.  Tests & examples welcome!
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for details.
-Enjoy creating with your LED wall! 🎉
+None whatsoever.  your milage may vary
 
 ```
 ```
