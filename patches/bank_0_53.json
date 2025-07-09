@@ -1,33 +1,33 @@
 {
-  "pattern": "blast",
+  "pattern": "Plasma_2",
   "params": {
-    "RATE": 0.1,
-    "NUM_STARS": 3,
-    "SPEED": 0.2,
-    "SLICE_WIDTH": 0.55,
-    "COLORMAP": "rainbow",
-    "SPRITE": "none"
+    "SPEED": 0.21,
+    "FREQUENCY": 1.4000000000000001,
+    "AMPLITUDE": 1.9000000000000001,
+    "LUT_SHIFT": 0.32,
+    "COLORMAP": "blue_white",
+    "SPRITE": "ksp_rocet"
   },
   "modulation": {
-    "RATE": {
-      "mod_active": false,
-      "mod_source": null,
-      "mod_mode": "add"
-    },
-    "NUM_STARS": {
-      "mod_active": false,
-      "mod_source": null,
-      "mod_mode": "replace"
-    },
     "SPEED": {
-      "mod_active": true,
-      "mod_source": "envl",
+      "mod_active": false,
+      "mod_source": null,
       "mod_mode": "add"
     },
-    "SLICE_WIDTH": {
-      "mod_active": true,
-      "mod_source": "envl",
-      "mod_mode": "replace"
+    "FREQUENCY": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "add"
+    },
+    "AMPLITUDE": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "scale"
+    },
+    "LUT_SHIFT": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "add"
     }
   },
   "lfo_config": {

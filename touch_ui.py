@@ -23,9 +23,22 @@ WALL_H = PANEL_HEIGHT * PANELS_Y   # e.g. 8*3 = 24
 NUM_LEDS = PANEL_WIDTH*PANELS_X*PANEL_HEIGHT*PANELS_Y
 FRAME_RATE = 45
 
+# — Patch grid setup —
+current_bank = 0
+random_mode = "Global"  # or "Bank"
+display_patch_mode = False
+PATCH_ROWS, PATCH_COLS = 8, 8
+TOTAL_SLOTS = PATCH_ROWS * PATCH_COLS
+MAX_BANKS = 8  # or however many you want
+GRID_X = 270
+GRID_Y = 60
+SLOT_SIZE = 50
+SLOT_SP   = 4
+
+
+
 led_matrix = WS2814('/dev/spidev0.0', NUM_LEDS, 800) 
 brightness = 0.3
-
 
 # --- Config ---
 SCREEN_WIDTH = 1024
@@ -98,7 +111,10 @@ def load_sprites(folder="sprites"):
             sprite_names.append(name)
     return sprites, ["none"] + sprite_names
 
-def save_patch(index, pattern_name, params, param_meta, lfo_config, env_config):
+def patch_filename(bank, slot):
+    return f"patches/bank_{bank}_{slot:02d}.json"
+
+def save_patch(bank, index, pattern_name, params, param_meta, lfo_config, env_config):
     patch = {
         "pattern":    pattern_name,
         "params":     params,
@@ -106,12 +122,37 @@ def save_patch(index, pattern_name, params, param_meta, lfo_config, env_config):
         "lfo_config": lfo_config,
         "env_config": env_config
     }
-    with open(f"patches/patch_{index:02d}.json", "w") as f:
+    with open(patch_filename(bank, index), "w") as f:
         json.dump(patch, f, indent=2)
 
-def load_patch(index):
-    with open(f"patches/patch_{index:02d}.json", "r") as f:
+def load_patch(bank, index):
+    with open(patch_filename(bank, index), "r") as f:
         return json.load(f)
+
+def delete_patch(bank, index):
+    fn = patch_filename(bank, index)
+    if os.path.isfile(fn):
+        os.remove(fn)
+
+def reload_patch_grid(patterns, sprites, patch_icons, patches):
+    for i in range(TOTAL_SLOTS):
+        fn = patch_filename(current_bank, i)
+        if isfile(fn):
+            patches[i] = True
+            p = load_patch(current_bank, i)
+            mod = patterns[p["pattern"]]
+            ps  = mod.PARAMS
+            params = p["params"]
+            temp = mod.Pattern(WALL_W, WALL_H, params=params)
+            frame = temp.render(lfo_signals={})
+            patch_icons[i] = make_thumbnail(
+                temp, frame,
+                sprites, params,
+                (SLOT_SIZE, SLOT_SIZE)
+            )
+        else:
+            patches[i] = None
+            patch_icons[i] = None
 
 def serpentine_index(x, y):
     """
@@ -158,7 +199,7 @@ def restore_patch(index,
       6. Restore colormap & sprite dropdowns
     Returns: (new_index, pattern, sliders, dropdowns, mod_checkboxes)
     """
-    patch = load_patch(index)
+    patch = load_patch(current_bank, index)
 
     # 1) Pattern switch
     new_index    = pattern_names.index(patch["pattern"])
@@ -222,16 +263,6 @@ def restore_patch(index,
     pattern.update_params(params)
 
     return new_index, pattern, sliders, dropdowns, mod_checkboxes
-
-def delete_patch(index):
-    """
-    Delete the JSON file for patch slot `index`, if it exists.
-    """
-    path = os.path.join("patches", f"patch_{index:02d}.json")
-    try:
-        os.remove(path)
-    except FileNotFoundError:
-        pass
 
 def make_thumbnail(pattern, frame, sprites, params, size):
     """
@@ -918,6 +949,7 @@ def create_sliders(param_specs, current_values):
 
 
 def launch_ui():
+    global current_bank, display_patch_mode, patches, patch_icons, random_mode
     pygame.init()
     from lfo import BPM
     # — Basic setup —
@@ -928,15 +960,10 @@ def launch_ui():
     font = pygame.font.SysFont("monospace", FONT_SIZE)
     button_font = pygame.font.SysFont("monospace", FONT_SIZE)
 
-    # — Patch grid setup —
-    display_patch_mode = False
-    PATCH_ROWS, PATCH_COLS = 8, 8
-    TOTAL_SLOTS = PATCH_ROWS * PATCH_COLS
     patches = [None] * TOTAL_SLOTS
     patch_icons = [None] * TOTAL_SLOTS
     save_mode = False
     clear_mode = False
-
 
     # — MOD panels —
     lfo1_panel = LFOControlPanel("lfo1", SCREEN_WIDTH - 300, 70, LFO_CONFIG["lfo1"])
@@ -998,7 +1025,6 @@ def launch_ui():
 
     sim_button_rect  = pygame.Rect(SCREEN_WIDTH - 200, 10, 180, 25)
 
-
     save_button_rect  = pygame.Rect(SCREEN_WIDTH - BTN*2 - SPACING*3,
                                     UI_HEIGHT - BTN - SPACING,
                                     BTN, BTN)
@@ -1010,7 +1036,12 @@ def launch_ui():
                                     BTN, BTN)
     tap_times = []
 
-        # –– Random-cycle controls ––
+    # — UI controls for bank switching —
+    bank_left_rect  = pygame.Rect(40, UI_HEIGHT - 40, 40, 30)
+    bank_right_rect = pygame.Rect(170, UI_HEIGHT - 40, 40, 30)
+    bank_label_rect = pygame.Rect(85, UI_HEIGHT - 40, 80, 30)
+
+    # –– Random-cycle controls ––
     random_cycle = False
     cycle_beats = 8
     last_cycle_time = time.time()
@@ -1040,10 +1071,7 @@ def launch_ui():
         BTN, BTN
     )
 
-    GRID_X = 270
-    GRID_Y = 60
-    SLOT_SIZE = 50
-    SLOT_SP   = 4
+
 
     patch_rects = []
     for row in range(PATCH_ROWS):
@@ -1058,11 +1086,11 @@ def launch_ui():
 
     # load patches
     for i in range(TOTAL_SLOTS):
-        fn = join("patches/", f"patch_{i:02d}.json")
+        fn = patch_filename(current_bank, i)
         if isfile(fn):
             patches[i] = True
             # Recreate thumbnail from saved params:
-            p = load_patch(i)
+            p = load_patch(current_bank, i)
             mod = patterns[p["pattern"]]
             ps  = mod.PARAMS
             params = p["params"]
@@ -1080,17 +1108,27 @@ def launch_ui():
     # Random‐cycle check
         if random_cycle:
             now = time.time()
-            # how many beats since last cycle?
             beats_elapsed = (now - last_cycle_time) * (BPM / 60.0)
             if beats_elapsed >= cycle_beats:
                 last_cycle_time = now
 
-                # pick one of your saved slots at random
-                saved = [i for i, has in enumerate(patches) if has]
-                if saved:
-                    slot = random.choice(saved)
+                saved = []
+                if random_mode == "Global":
+                    for bank in range(MAX_BANKS):
+                        for slot in range(TOTAL_SLOTS):
+                            fn = patch_filename(bank, slot)
+                            if isfile(fn):
+                                saved.append((bank, slot))
+                else:  # Bank mode
+                    for slot in range(TOTAL_SLOTS):
+                        fn = patch_filename(current_bank, slot)
+                        if isfile(fn):
+                            saved.append((current_bank, slot))
 
-                    # call your shared restore function:
+                if saved:
+                    bank, slot = random.choice(saved)
+                    current_bank = bank
+                    reload_patch_grid(patterns, sprites, patch_icons, patches)
                     (current_index,
                     pattern,
                     sliders,
@@ -1189,6 +1227,21 @@ def launch_ui():
                    clear_mode = not clear_mode
                    continue
                 
+                # Bank navigation
+                if bank_left_rect.collidepoint(event.pos) and current_bank > 0:
+                    current_bank -= 1
+                    reload_patch_grid(patterns, sprites, patch_icons, patches)
+                    continue
+                
+                if bank_right_rect.collidepoint(event.pos) and current_bank < MAX_BANKS-1:
+                    current_bank += 1
+                    reload_patch_grid(patterns, sprites, patch_icons, patches)
+                    continue
+
+                if bank_label_rect.collidepoint(event.pos):
+                    random_mode = "Global" if random_mode == "Bank" else "Bank"
+                    continue
+
                 # — Patch grid clicks —
                 for i, slot in enumerate(patch_rects):
                     if slot.collidepoint(event.pos):
@@ -1208,6 +1261,7 @@ def launch_ui():
 
                             # Save everything
                             save_patch(
+                                current_bank,
                                 i,
                                 pattern_names[current_index],
                                 params,
@@ -1233,7 +1287,7 @@ def launch_ui():
 
                         # — CLEAR MODE —
                         elif clear_mode:
-                            delete_patch(i)
+                            delete_patch(current_bank, i)
                             patches[i]     = None
                             patch_icons[i] = None
                             clear_mode     = False
@@ -1241,7 +1295,7 @@ def launch_ui():
                         # — LOAD / RECALL MODE —
                         else:
                             if patches[i]:
-                                patch = load_patch(i)
+                                patch = load_patch(current_bank, i)
 
                                 # Switch to saved pattern
                                 pattern_name   = patch["pattern"]
@@ -1450,7 +1504,18 @@ def launch_ui():
         screen.blit(font.render("RND", True, (255,255,255)),
                     (random_button_rect.x+6, random_button_rect.y+8))
 
-        
+        # Bank Navigation Buttons & Label —————————————————
+        pygame.draw.rect(screen, (80,80,80), bank_left_rect)
+        screen.blit(font.render("<", True, (255,255,255)), (bank_left_rect.x+10, bank_left_rect.y+5))
+        pygame.draw.rect(screen, (80,80,80), bank_right_rect)
+        screen.blit(font.render(">", True, (255,255,255)), (bank_right_rect.x+10, bank_right_rect.y+5))
+        pygame.draw.rect(screen, (120,120,120), bank_label_rect)
+        screen.blit(
+            font.render(
+                f"{random_mode}", True, (0,0,0)
+            ),
+            (bank_label_rect.x+2, bank_label_rect.y+5)
+        )
 
 
         pygame.draw.rect(screen, (90,90,90), tap_button_rect)
