@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import pygame
 import random
 import time
@@ -1442,15 +1443,17 @@ def launch_ui():
             beat = (pygame.time.get_ticks()/1000.0) * bps
             idx = int(beat) % len(frames)
             sprite_surf = frames[idx]
-            w,h = sprite_surf.get_size()
-            ox = (pattern.width - w)//2
-            oy = (pattern.height - h)//2
-            for yy in range(h):
-                for xx in range(w):
-                    rgba = sprite_surf.get_at((xx,yy))
-                    if rgba[3]>0:
-                        frame[ (oy+yy)*pattern.width + (ox+xx) ] = (rgba.r,rgba.g,rgba.b,0)
-        
+            w, h = sprite_surf.get_size()
+            # Only draw if sprite fits on the wall
+            if w <= pattern.width and h <= pattern.height:
+                ox = (pattern.width - w) // 2
+                oy = (pattern.height - h) // 2
+                for yy in range(h):
+                    for xx in range(w):
+                        rgba = sprite_surf.get_at((xx, yy))
+                        if rgba[3] > 0:
+                            frame[(oy + yy) * pattern.width + (ox + xx)] = (rgba.r, rgba.g, rgba.b, 0)
+                
         ## Drawing Section 
         # Simulator (background) ——————————————————————————————
         if show_simulator:

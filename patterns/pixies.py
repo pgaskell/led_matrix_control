@@ -29,7 +29,7 @@ class Pattern(BasePattern):
         self.param_meta = PARAMS
         # State for three pixies:
         self.pixies = []
-        for _ in range(3):
+        for _ in range(5):
             angle = random.random() * 2*math.pi
             self.pixies.append({
                 "x": random.uniform(0, width),

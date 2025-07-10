@@ -55,7 +55,7 @@ class Pattern(BasePattern):
 
         # 3) Compute pixel bounds
         w, h = self.width, self.height
-        side = min(w, h)
+        side = max(w, h)
         half = side * size_frac / 2.0
         cx, cy = w / 2.0, h / 2.0
 

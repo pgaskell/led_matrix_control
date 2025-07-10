@@ -3,10 +3,10 @@
   "params": {
     "STAR_COUNT": 75,
     "SPEED": 1.32,
-    "TRAIL": 0.6,
-    "COLOR_CYCLE": 0.0,
-    "COLORMAP": "neon_spectrum",
-    "SPRITE": "none"
+    "TRAIL": 0.86,
+    "COLOR_CYCLE": 1.0,
+    "COLORMAP": "viridis_approx",
+    "SPRITE": "houseforall"
   },
   "modulation": {
     "STAR_COUNT": {

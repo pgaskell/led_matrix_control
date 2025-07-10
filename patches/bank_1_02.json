@@ -1,30 +1,30 @@
 {
-  "pattern": "hyperspace",
+  "pattern": "lissajous_loop",
   "params": {
-    "STAR_COUNT": 75,
-    "SPEED": 1.32,
-    "TRAIL": 0.6,
-    "COLOR_CYCLE": 0.0,
-    "COLORMAP": "neon_spectrum",
+    "X_FREQ": 4.5,
+    "Y_FREQ": 4.5,
+    "PHASE": 0.33,
+    "COLOR_CENTER": 0.08,
+    "COLORMAP": "rainbow",
     "SPRITE": "none"
   },
   "modulation": {
-    "STAR_COUNT": {
+    "X_FREQ": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
     },
-    "SPEED": {
+    "Y_FREQ": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "add"
+    },
+    "PHASE": {
       "mod_active": true,
       "mod_source": "envl",
       "mod_mode": "add"
     },
-    "TRAIL": {
-      "mod_active": false,
-      "mod_source": null,
-      "mod_mode": "add"
-    },
-    "COLOR_CYCLE": {
+    "COLOR_CENTER": {
       "mod_active": true,
       "mod_source": "envh",
       "mod_mode": "add"
@@ -33,16 +33,16 @@
   "lfo_config": {
     "lfo1": {
       "waveform": "sine",
-      "depth": 0.43,
-      "offset": 0.5,
-      "sync_mode": "quantized",
+      "depth": 0.1,
+      "offset": -0.4,
+      "sync_mode": "free",
       "hz": 0.5,
-      "period_beats": 2.0,
+      "period_beats": 1.0,
       "phase": 0.0
     },
     "lfo2": {
       "waveform": "triangle",
-      "depth": 1.0,
+      "depth": 0.2,
       "offset": 0.0,
       "sync_mode": "free",
       "hz": 0.2,
@@ -52,15 +52,15 @@
   },
   "env_config": {
     "envl": {
-      "threshold_db": -10,
-      "gain_db": -18,
-      "attack": 0.005,
-      "release": 0.1,
-      "mode": "up"
+      "threshold_db": -9,
+      "gain_db": -19,
+      "attack": 0.02,
+      "release": 0.15,
+      "mode": "updown"
     },
     "envh": {
-      "threshold_db": -10,
-      "gain_db": -22,
+      "threshold_db": -27,
+      "gain_db": -20,
       "attack": 0.005,
       "release": 0.1,
       "mode": "up"

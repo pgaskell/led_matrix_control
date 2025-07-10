@@ -1,30 +1,30 @@
 {
-  "pattern": "Plasma_2",
+  "pattern": "circles",
   "params": {
-    "SPEED": 0.21,
-    "FREQUENCY": 1.4000000000000001,
-    "AMPLITUDE": 1.9000000000000001,
-    "LUT_SHIFT": 0.32,
-    "COLORMAP": "blue_white",
-    "SPRITE": "ksp_rocet"
+    "NUM_GENERATORS": 10,
+    "MOVE_SPEED": 0.35000000000000003,
+    "PALETTE_SHIFT": 0.166,
+    "CIRCLE_THICKNESS": 4.2,
+    "COLORMAP": "rainbow",
+    "SPRITE": "none"
   },
   "modulation": {
-    "SPEED": {
+    "NUM_GENERATORS": {
+      "mod_active": true,
+      "mod_source": "envh",
+      "mod_mode": "add"
+    },
+    "MOVE_SPEED": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
     },
-    "FREQUENCY": {
+    "PALETTE_SHIFT": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
     },
-    "AMPLITUDE": {
-      "mod_active": false,
-      "mod_source": null,
-      "mod_mode": "scale"
-    },
-    "LUT_SHIFT": {
+    "CIRCLE_THICKNESS": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"

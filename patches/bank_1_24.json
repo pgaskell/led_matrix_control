@@ -1,43 +1,43 @@
 {
-  "pattern": "hyperspace",
+  "pattern": "beating_hearts",
   "params": {
-    "STAR_COUNT": 75,
-    "SPEED": 1.32,
-    "TRAIL": 0.6,
+    "HEART_COUNT": 1,
+    "BEAT_SPEED": 1.51,
+    "SIZE": 0.17,
     "COLOR_CYCLE": 0.0,
-    "COLORMAP": "neon_spectrum",
+    "COLORMAP": "cyber_shift",
     "SPRITE": "none"
   },
   "modulation": {
-    "STAR_COUNT": {
-      "mod_active": false,
-      "mod_source": null,
+    "HEART_COUNT": {
+      "mod_active": true,
+      "mod_source": "lfo1",
       "mod_mode": "add"
     },
-    "SPEED": {
+    "BEAT_SPEED": {
+      "mod_active": true,
+      "mod_source": "envh",
+      "mod_mode": "add"
+    },
+    "SIZE": {
       "mod_active": true,
       "mod_source": "envl",
       "mod_mode": "add"
     },
-    "TRAIL": {
+    "COLOR_CYCLE": {
       "mod_active": false,
       "mod_source": null,
-      "mod_mode": "add"
-    },
-    "COLOR_CYCLE": {
-      "mod_active": true,
-      "mod_source": "envh",
       "mod_mode": "add"
     }
   },
   "lfo_config": {
     "lfo1": {
-      "waveform": "sine",
-      "depth": 0.43,
-      "offset": 0.5,
+      "waveform": "triangle",
+      "depth": 0.2,
+      "offset": 0.2,
       "sync_mode": "quantized",
       "hz": 0.5,
-      "period_beats": 2.0,
+      "period_beats": 4.0,
       "phase": 0.0
     },
     "lfo2": {
@@ -53,14 +53,14 @@
   "env_config": {
     "envl": {
       "threshold_db": -10,
-      "gain_db": -18,
+      "gain_db": -13,
       "attack": 0.005,
       "release": 0.1,
       "mode": "up"
     },
     "envh": {
       "threshold_db": -10,
-      "gain_db": -22,
+      "gain_db": 0,
       "attack": 0.005,
       "release": 0.1,
       "mode": "up"

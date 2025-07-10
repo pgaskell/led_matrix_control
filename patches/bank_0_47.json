@@ -1,11 +1,11 @@
 {
   "pattern": "hyperspace",
   "params": {
-    "STAR_COUNT": 75,
+    "STAR_COUNT": 30,
     "SPEED": 1.32,
-    "TRAIL": 0.6,
+    "TRAIL": 0.91,
     "COLOR_CYCLE": 0.0,
-    "COLORMAP": "neon_spectrum",
+    "COLORMAP": "cyber_shift",
     "SPRITE": "none"
   },
   "modulation": {
@@ -33,11 +33,11 @@
   "lfo_config": {
     "lfo1": {
       "waveform": "sine",
-      "depth": 0.43,
-      "offset": 0.5,
+      "depth": 1.0,
+      "offset": 0.0,
       "sync_mode": "quantized",
       "hz": 0.5,
-      "period_beats": 2.0,
+      "period_beats": 1.0,
       "phase": 0.0
     },
     "lfo2": {
