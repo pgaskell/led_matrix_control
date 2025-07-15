@@ -1,35 +1,45 @@
 {
-  "pattern": "spectral_ring",
+  "pattern": "Plasma_2",
   "params": {
-    "BINS": 24,
-    "ROTATION_SPEED": 0.25,
-    "RADIUS_SCALE": 0.71,
-    "COLOR_SHIFT_SPEED": 0.8,
-    "COLORMAP": "rainbow",
-    "SPRITE": "none"
+    "RING_SPACING": 0.2,
+    "EXPANSION_SPEED": 0.5,
+    "RING_THICKNESS": 0.05,
+    "COLOR_SHIFT": 0.0,
+    "COLORMAP": "neon_spectrum",
+    "SPRITE": "none",
+    "SPEED": 0.75,
+    "FREQUENCY": 5.300000000000001,
+    "AMPLITUDE": 1.3,
+    "LUT_SHIFT": 0.78
   },
   "modulation": {
-    "ROTATION_SPEED": {
-      "mod_active": true,
-      "mod_source": "lfo2",
+    "SPEED": {
+      "mod_active": false,
+      "mod_source": null,
       "mod_mode": "add"
     },
-    "RADIUS_SCALE": {
-      "mod_active": true,
-      "mod_source": "envl",
+    "FREQUENCY": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "add"
+    },
+    "AMPLITUDE": {
+      "mod_active": false,
+      "mod_source": null,
       "mod_mode": "scale"
     },
-    "COLOR_SHIFT_SPEED": {
+    "LUT_SHIFT": {
       "mod_active": true,
-      "mod_source": "envh",
+      "mod_source": "lfo1",
       "mod_mode": "add"
     }
   },
   "lfo_config": {
     "lfo1": {
       "waveform": "sine",
-      "depth": 1.0,
-      "sync_mode": "quantized",
+      "depth": 0.4,
+      "offset": 0.03,
+      "sync_mode": "free",
       "hz": 0.5,
       "period_beats": 1.0,
       "phase": 0.0
@@ -37,7 +47,8 @@
     "lfo2": {
       "waveform": "triangle",
       "depth": 1.0,
-      "sync_mode": "quantized",
+      "offset": 0.0,
+      "sync_mode": "free",
       "hz": 0.2,
       "period_beats": 2.0,
       "phase": 0.0
@@ -45,8 +56,8 @@
   },
   "env_config": {
     "envl": {
-      "threshold_db": -35,
-      "gain_db": 1,
+      "threshold_db": -10,
+      "gain_db": 0,
       "attack": 0.005,
       "release": 0.1,
       "mode": "up"

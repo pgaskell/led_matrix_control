@@ -1,25 +1,25 @@
 {
-  "pattern": "pixies",
+  "pattern": "beating_hearts",
   "params": {
-    "BLOB_SIZE": 3.0,
-    "SPEED": 3.3000000000000003,
-    "TRAIL_DECAY": 0.9500000000000001,
-    "COLOR_CYCLE": 0.56,
-    "COLORMAP": "green",
+    "HEART_COUNT": 7,
+    "BEAT_SPEED": 1.98,
+    "SIZE": 0.44,
+    "COLOR_CYCLE": 0.53,
+    "COLORMAP": "neon_spectrum",
     "SPRITE": "none"
   },
   "modulation": {
-    "BLOB_SIZE": {
+    "HEART_COUNT": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
     },
-    "SPEED": {
-      "mod_active": true,
-      "mod_source": "envh",
+    "BEAT_SPEED": {
+      "mod_active": false,
+      "mod_source": null,
       "mod_mode": "add"
     },
-    "TRAIL_DECAY": {
+    "SIZE": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
@@ -33,9 +33,9 @@
   "lfo_config": {
     "lfo1": {
       "waveform": "sine",
-      "depth": 1.0,
-      "offset": 0.0,
-      "sync_mode": "quantized",
+      "depth": 0.4,
+      "offset": 0.03,
+      "sync_mode": "free",
       "hz": 0.5,
       "period_beats": 1.0,
       "phase": 0.0

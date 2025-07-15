@@ -1,0 +1,69 @@
+{
+  "pattern": "wavy_vert",
+  "params": {
+    "STRIPES": 2,
+    "AMPLITUDE": 0.2,
+    "WAVE_SPEED": 0.005,
+    "COLOR_SHIFT": 0.039,
+    "COLORMAP": "green_blue",
+    "SPRITE": "A2AF_magenta"
+  },
+  "modulation": {
+    "STRIPES": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "add"
+    },
+    "AMPLITUDE": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "add"
+    },
+    "WAVE_SPEED": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "add"
+    },
+    "COLOR_SHIFT": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "add"
+    }
+  },
+  "lfo_config": {
+    "lfo1": {
+      "waveform": "sine",
+      "depth": 1.0,
+      "sync_mode": "quantized",
+      "hz": 0.5,
+      "period_beats": 1.0,
+      "phase": 0.0,
+      "offset": -0.07
+    },
+    "lfo2": {
+      "waveform": "triangle",
+      "depth": 1.0,
+      "sync_mode": "free",
+      "hz": 0.2,
+      "period_beats": 2.0,
+      "phase": 0.0,
+      "offset": -0.03
+    }
+  },
+  "env_config": {
+    "envl": {
+      "threshold_db": 20,
+      "gain_db": 10,
+      "attack": 0.001,
+      "release": 0.025,
+      "mode": "down"
+    },
+    "envh": {
+      "threshold_db": -40,
+      "gain_db": -40,
+      "attack": 0.001,
+      "release": 0.025,
+      "mode": "down"
+    }
+  }
+}

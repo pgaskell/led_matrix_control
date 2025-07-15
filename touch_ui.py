@@ -39,7 +39,7 @@ SLOT_SP   = 4
 
 
 led_matrix = WS2814('/dev/spidev0.0', NUM_LEDS, 800) 
-brightness = 0.3
+brightness = 0.5
 
 # --- Config ---
 SCREEN_WIDTH = 1024
@@ -1043,12 +1043,9 @@ def launch_ui():
     bank_label_rect = pygame.Rect(85, UI_HEIGHT - 40, 80, 30)
 
     # –– Random-cycle controls ––
-    random_cycle = False
-    cycle_beats = 8
+    random_cycle = True
+    cycle_beats = 32
     last_cycle_time = time.time()
-
-    # how many beats between random‐patch cycles?
-    cycle_beats = 8
 
 # dropdown right to left: place it just to the left of your clear button
     SP = 10  # same SPACING you’re using

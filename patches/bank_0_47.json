@@ -3,7 +3,7 @@
   "params": {
     "STAR_COUNT": 30,
     "SPEED": 1.32,
-    "TRAIL": 0.91,
+    "TRAIL": 0.96,
     "COLOR_CYCLE": 0.0,
     "COLORMAP": "cyber_shift",
     "SPRITE": "none"

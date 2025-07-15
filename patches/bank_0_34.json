@@ -1,38 +1,32 @@
 {
-  "pattern": "particle_vortex",
+  "pattern": "infinite_squares",
   "params": {
-    "SPAWN_RATE": 0.73,
-    "SWIRL_STRENGTH": 0.25,
-    "RADIAL_SPEED": 0.31,
-    "LIFESPAN": 2.0,
-    "HUE_SHIFT": 0.0,
+    "SPEED": 1.0,
+    "THICKNESS": 1.0,
+    "COLOR_CYCLE": 0.15,
+    "SPACING": 3.0,
     "COLORMAP": "lava_art",
     "SPRITE": "none"
   },
   "modulation": {
-    "SPAWN_RATE": {
+    "SPEED": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
     },
-    "SWIRL_STRENGTH": {
+    "THICKNESS": {
       "mod_active": true,
       "mod_source": "envl",
       "mod_mode": "add"
     },
-    "RADIAL_SPEED": {
+    "COLOR_CYCLE": {
+      "mod_active": true,
+      "mod_source": "envl",
+      "mod_mode": "add"
+    },
+    "SPACING": {
       "mod_active": true,
       "mod_source": "envh",
-      "mod_mode": "add"
-    },
-    "LIFESPAN": {
-      "mod_active": false,
-      "mod_source": null,
-      "mod_mode": "add"
-    },
-    "HUE_SHIFT": {
-      "mod_active": false,
-      "mod_source": null,
       "mod_mode": "add"
     }
   },
@@ -40,6 +34,7 @@
     "lfo1": {
       "waveform": "sine",
       "depth": 1.0,
+      "offset": 0.0,
       "sync_mode": "quantized",
       "hz": 0.5,
       "period_beats": 1.0,
@@ -48,6 +43,7 @@
     "lfo2": {
       "waveform": "triangle",
       "depth": 1.0,
+      "offset": 0.0,
       "sync_mode": "free",
       "hz": 0.2,
       "period_beats": 2.0,

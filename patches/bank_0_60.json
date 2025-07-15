@@ -1,30 +1,30 @@
 {
-  "pattern": "fireworks",
+  "pattern": "yves",
   "params": {
-    "EXPLOSION_RATE": 0.27,
-    "PARTICLE_COUNT": 32,
-    "PARTICLE_SPEED": 5.0,
-    "FADE_TIME": 1.1,
+    "WAVES": 4,
+    "SPEED": 0.2,
+    "TWIST": 1.5,
+    "COLOR_CYCLE": 0.16,
     "COLORMAP": "ocean",
-    "SPRITE": "splathouse"
+    "SPRITE": "A2AF_magenta"
   },
   "modulation": {
-    "EXPLOSION_RATE": {
+    "WAVES": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
     },
-    "PARTICLE_COUNT": {
-      "mod_active": false,
-      "mod_source": null,
-      "mod_mode": "replace"
-    },
-    "PARTICLE_SPEED": {
+    "SPEED": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
     },
-    "FADE_TIME": {
+    "TWIST": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "add"
+    },
+    "COLOR_CYCLE": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
@@ -33,18 +33,18 @@
   "lfo_config": {
     "lfo1": {
       "waveform": "sine",
-      "depth": 1.0,
-      "offset": 0.0,
+      "depth": 0.52,
+      "offset": 0.6,
       "sync_mode": "quantized",
       "hz": 0.5,
       "period_beats": 1.0,
       "phase": 0.0
     },
     "lfo2": {
-      "waveform": "sine",
-      "depth": 0.22,
-      "offset": 0.5,
-      "sync_mode": "quantized",
+      "waveform": "triangle",
+      "depth": 1.0,
+      "offset": 0.0,
+      "sync_mode": "free",
       "hz": 0.2,
       "period_beats": 2.0,
       "phase": 0.0
@@ -52,18 +52,18 @@
   },
   "env_config": {
     "envl": {
-      "threshold_db": -10,
-      "gain_db": 0,
+      "threshold_db": -27,
+      "gain_db": -8,
       "attack": 0.005,
       "release": 0.1,
       "mode": "up"
     },
     "envh": {
-      "threshold_db": -10,
-      "gain_db": 0,
+      "threshold_db": -28,
+      "gain_db": -19,
       "attack": 0.005,
       "release": 0.1,
-      "mode": "up"
+      "mode": "down"
     }
   }
 }

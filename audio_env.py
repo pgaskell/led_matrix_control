@@ -14,7 +14,7 @@ HIGH_BAND   = (1000, 5000)
 N_BANDS     = 24
 
 LOW_GAIN      = 0.1
-HIGH_GAIN     = 3.0
+HIGH_GAIN     = 1.0
 
 # This is your “panel” config, loadable/savable with patches:
 ENV_CONFIG = {

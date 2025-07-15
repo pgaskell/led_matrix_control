@@ -1,15 +1,30 @@
 {
-  "pattern": "vu",
+  "pattern": "exploding_squares",
   "params": {
-    "BINS": 24,
-    "HOLD_TIME": 0.5,
-    "GAIN_DB": 0.0,
-    "DISPLAY_MODE": 2,
-    "COLORMAP": "ocean",
-    "SPRITE": "MagicMushroom"
+    "speed": 0.52,
+    "size": 13.200000000000001,
+    "color_shift": 0.65,
+    "fade": 0.8,
+    "COLORMAP": "vu_meter",
+    "SPRITE": "none"
   },
   "modulation": {
-    "GAIN_DB": {
+    "speed": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "add"
+    },
+    "size": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "add"
+    },
+    "color_shift": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "add"
+    },
+    "fade": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
@@ -18,8 +33,9 @@
   "lfo_config": {
     "lfo1": {
       "waveform": "sine",
-      "depth": 1.0,
-      "sync_mode": "quantized",
+      "depth": 0.4,
+      "offset": 0.03,
+      "sync_mode": "free",
       "hz": 0.5,
       "period_beats": 1.0,
       "phase": 0.0
@@ -27,6 +43,7 @@
     "lfo2": {
       "waveform": "triangle",
       "depth": 1.0,
+      "offset": 0.0,
       "sync_mode": "free",
       "hz": 0.2,
       "period_beats": 2.0,
@@ -35,8 +52,8 @@
   },
   "env_config": {
     "envl": {
-      "threshold_db": -20,
-      "gain_db": 5,
+      "threshold_db": -10,
+      "gain_db": 0,
       "attack": 0.005,
       "release": 0.1,
       "mode": "up"

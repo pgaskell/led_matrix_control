@@ -1,34 +1,30 @@
 {
-  "pattern": "Plasma_2",
+  "pattern": "chasing_spirals",
   "params": {
-    "NUM_WAVES": 8,
-    "WAVE_SPEED": 0.07,
-    "WAVE_SCALE": 0.92,
-    "COLOR_SHIFT": 0.035,
-    "COLORMAP": "rainbow",
-    "SPRITE": "none",
-    "SPEED": 0.64,
-    "FREQUENCY": 10.0,
-    "AMPLITUDE": 1.3,
-    "LUT_SHIFT": 0.0
+    "SPIRALS": 3,
+    "SPEED": 0.18,
+    "TWIST": 2.0,
+    "COLOR_CYCLE": 0.15,
+    "COLORMAP": "green_blue",
+    "SPRITE": "batz_colorchange"
   },
   "modulation": {
+    "SPIRALS": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "add"
+    },
     "SPEED": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
     },
-    "FREQUENCY": {
+    "TWIST": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
     },
-    "AMPLITUDE": {
-      "mod_active": true,
-      "mod_source": "lfo2",
-      "mod_mode": "scale"
-    },
-    "LUT_SHIFT": {
+    "COLOR_CYCLE": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
@@ -37,8 +33,8 @@
   "lfo_config": {
     "lfo1": {
       "waveform": "sine",
-      "depth": 1.0,
-      "offset": 0.0,
+      "depth": 0.52,
+      "offset": 0.6,
       "sync_mode": "quantized",
       "hz": 0.5,
       "period_beats": 1.0,
@@ -56,18 +52,18 @@
   },
   "env_config": {
     "envl": {
-      "threshold_db": -10,
-      "gain_db": 0,
+      "threshold_db": -27,
+      "gain_db": -8,
       "attack": 0.005,
       "release": 0.1,
       "mode": "up"
     },
     "envh": {
-      "threshold_db": -10,
-      "gain_db": 0,
+      "threshold_db": -28,
+      "gain_db": -19,
       "attack": 0.005,
       "release": 0.1,
-      "mode": "up"
+      "mode": "down"
     }
   }
 }

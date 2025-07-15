@@ -1,65 +1,66 @@
 {
-  "pattern": "circles",
+  "pattern": "rings",
   "params": {
-    "NUM_GENERATORS": 4,
-    "MOVE_SPEED": 0.1,
-    "COLOR_CYCLE_SPEED": 0.0,
-    "COLORMAP": "warm_rainbow",
-    "SPRITE": "none",
-    "PALETTE_SHIFT": 0.02,
-    "CIRCLE_THICKNESS": 1.0
+    "RING_SPACING": 0.2,
+    "EXPANSION_SPEED": 0.5,
+    "RING_THICKNESS": 0.05,
+    "COLOR_SHIFT": 0.0,
+    "COLORMAP": "green_blue",
+    "SPRITE": "none"
   },
   "modulation": {
-    "NUM_GENERATORS": {
-      "mod_active": true,
-      "mod_source": "lfo1",
+    "RING_SPACING": {
+      "mod_active": false,
+      "mod_source": null,
       "mod_mode": "add"
     },
-    "MOVE_SPEED": {
-      "mod_active": true,
-      "mod_source": "lfo2",
+    "EXPANSION_SPEED": {
+      "mod_active": false,
+      "mod_source": null,
       "mod_mode": "add"
     },
-    "PALETTE_SHIFT": {
-      "mod_active": true,
-      "mod_source": "envl",
+    "RING_THICKNESS": {
+      "mod_active": false,
+      "mod_source": null,
       "mod_mode": "add"
     },
-    "CIRCLE_THICKNESS": {
-      "mod_active": true,
-      "mod_source": "envh",
+    "COLOR_SHIFT": {
+      "mod_active": false,
+      "mod_source": null,
       "mod_mode": "add"
     }
   },
   "lfo_config": {
     "lfo1": {
       "waveform": "sine",
-      "depth": 1.0,
+      "depth": 0.43,
+      "offset": 0.5,
       "sync_mode": "quantized",
       "hz": 0.5,
-      "period_beats": 1.0,
+      "period_beats": 2.0,
       "phase": 0.0
     },
     "lfo2": {
       "waveform": "triangle",
       "depth": 1.0,
-      "sync_mode": "quantized",
+      "offset": 0.0,
+      "sync_mode": "free",
       "hz": 0.2,
-      "period_beats": 4.0,
+      "period_beats": 2.0,
       "phase": 0.0
     }
   },
   "env_config": {
     "envl": {
       "threshold_db": -10,
-      "gain_db": -26,
+      "gain_db": -18,
       "attack": 0.005,
       "release": 0.1,
       "mode": "up"
     },
     "envh": {
       "threshold_db": -10,
-      "gain_db": 0,
+      "gain_db": -22,
       "attack": 0.005,
       "release": 0.1,
       "mode": "up"

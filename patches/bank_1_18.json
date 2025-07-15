@@ -5,7 +5,7 @@
     "SPACING": 6.800000000000001,
     "COLOR_CYCLE": 0.39,
     "COLORMAP": "cyber_shift",
-    "SPRITE": "Starman_g"
+    "SPRITE": "none"
   },
   "modulation": {
     "ZOOM_SPEED": {
@@ -28,20 +28,20 @@
     "lfo1": {
       "waveform": "sine",
       "depth": 1.0,
-      "offset": 0.0,
       "sync_mode": "quantized",
       "hz": 0.5,
       "period_beats": 1.0,
-      "phase": 0.0
+      "phase": 0.0,
+      "offset": 0.0
     },
     "lfo2": {
       "waveform": "triangle",
       "depth": 1.0,
-      "offset": 0.0,
       "sync_mode": "free",
       "hz": 0.2,
       "period_beats": 2.0,
-      "phase": 0.0
+      "phase": 0.0,
+      "offset": 0.0
     }
   },
   "env_config": {

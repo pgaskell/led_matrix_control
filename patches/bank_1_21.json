@@ -1,32 +1,32 @@
 {
-  "pattern": "kaleidoscope",
+  "pattern": "chasing_spirals",
   "params": {
-    "AXES": 9,
-    "ROTATION_SPEED": -1.0,
-    "COLOR_CYCLE": 0.4,
-    "COMPLEXITY": 0.5,
-    "COLORMAP": "hot",
-    "SPRITE": "MagicMushroom"
+    "SPIRALS": 3,
+    "SPEED": 0.96,
+    "TWIST": 2.0,
+    "COLOR_CYCLE": 0.15,
+    "COLORMAP": "pastels",
+    "SPRITE": "none"
   },
   "modulation": {
-    "AXES": {
-      "mod_active": true,
-      "mod_source": "lfo1",
+    "SPIRALS": {
+      "mod_active": false,
+      "mod_source": null,
       "mod_mode": "add"
     },
-    "ROTATION_SPEED": {
+    "SPEED": {
+      "mod_active": false,
+      "mod_source": null,
+      "mod_mode": "add"
+    },
+    "TWIST": {
       "mod_active": false,
       "mod_source": null,
       "mod_mode": "add"
     },
     "COLOR_CYCLE": {
-      "mod_active": true,
-      "mod_source": "envh",
-      "mod_mode": "add"
-    },
-    "COMPLEXITY": {
-      "mod_active": true,
-      "mod_source": "envl",
+      "mod_active": false,
+      "mod_source": null,
       "mod_mode": "add"
     }
   },
@@ -53,7 +53,7 @@
   "env_config": {
     "envl": {
       "threshold_db": -10,
-      "gain_db": -17,
+      "gain_db": 0,
       "attack": 0.005,
       "release": 0.1,
       "mode": "up"
