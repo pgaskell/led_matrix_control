@@ -2,8 +2,11 @@
 
 ![alt text](https://raw.githubusercontent.com/pgaskell/led_matrix_control/main/images/led_wall.png "LED Matrix")
 
-**Authors:** P. Gaskell & ChatGPT  
+**Authors:** P. Gaskell & several LLMs...
 **GitHub:** [pgaskell/led_matrix_control](https://github.com/pgaskell/led_matrix_control)
+
+Yeah, I vibecoded alot of it... It took less time and I didn't have to think as much, 
+but it's not pretty... Documentation below too! does it make much sense? 
 
 A flexible, touch-enabled UI and toolkit for driving an LED wall or strip.  Features:
 
